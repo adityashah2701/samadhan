@@ -1,13 +1,13 @@
 {
   "expo": {
     "name": "Samadhan",
-    "slug": "samadhan",
+    "slug": "internal-hackathon-2025",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "scheme": "samadhan",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "developmentClient": {
       "silentLaunch": true
     },
@@ -41,9 +41,11 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
-        "android.permission.WAKE_LOCK"
+        "android.permission.WAKE_LOCK",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -52,6 +54,35 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Samadhan to access your camera to take photos of civic issues."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Samadhan to access your photos to upload images of civic issues.",
+          "cameraPermission": "Allow Samadhan to access your camera to take photos of civic issues."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Samadhan to use your location to tag civic issues accurately.",
+          "locationAlwaysPermission": "Allow Samadhan to use your location to provide relevant updates.",
+          "locationWhenInUsePermission": "Allow Samadhan to use your location to tag civic issues accurately."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/logo.png",
+          "color": "#16a34a",
+          "defaultChannel": "samadhan-notifications"
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -65,21 +96,11 @@
           }
         }
       ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/logo.png",
-          "color": "#16a34a",
-          "defaultChannel": "samadhan-notifications"
-        }
-      ],
       "expo-secure-store",
-      "expo-web-browser",
-      "expo-location"
+      "expo-web-browser"
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     },
     "extra": {
       "router": {},

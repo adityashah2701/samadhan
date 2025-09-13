@@ -52,18 +52,33 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [notificationCounts?.unread, setBadgeCount, lastNotificationCount]);
 
   const sendLocalNotificationForIssue = (issueTitle: string, issueNumber: string) => {
-    const { title, body } = NotificationHelpers.formatIssueCreatedNotification(issueTitle, issueNumber);
-    sendLocalNotification({ title, body });
+    try {
+      console.log('🔔 Attempting to send local notification');
+      const { title, body } = NotificationHelpers.formatIssueCreatedNotification(issueTitle, issueNumber);
+      sendLocalNotification({ title, body });
+      console.log('✅ Local notification sent successfully');
+    } catch (error) {
+      console.error('❌ Error sending local notification:', error);
+      // Don't crash the app for notification errors
+    }
   };
 
   const sendLocalNotificationForStatus = (issueTitle: string, newStatus: string, note?: string) => {
-    const { title, body } = NotificationHelpers.formatStatusUpdateNotification(issueTitle, newStatus, note);
-    sendLocalNotification({ title, body });
+    try {
+      const { title, body } = NotificationHelpers.formatStatusUpdateNotification(issueTitle, newStatus, note);
+      sendLocalNotification({ title, body });
+    } catch (error) {
+      console.error('Error sending status notification:', error);
+    }
   };
 
   const sendLocalNotificationForComment = (issueTitle: string, commenterName: string, isOfficial: boolean) => {
-    const { title, body } = NotificationHelpers.formatCommentNotification(issueTitle, commenterName, isOfficial);
-    sendLocalNotification({ title, body });
+    try {
+      const { title, body } = NotificationHelpers.formatCommentNotification(issueTitle, commenterName, isOfficial);
+      sendLocalNotification({ title, body });
+    } catch (error) {
+      console.error('Error sending comment notification:', error);
+    }
   };
 
   const contextValue: NotificationContextType = {
