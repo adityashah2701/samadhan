@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
     color:"#000",
     backgroundColor: "#f9fafb",
   },
-  textArea: { height: 100, textAlignVertical: "top" },
+  textArea: { height: 100, textAlignVertical: "top",color:"#000" },
   imageContainer: { flexDirection: "row", flexWrap: "wrap" },
   imageWrapper: { position: "relative", marginRight: 8, marginBottom: 8 },
   uploadedImage: { width: imageSize, height: imageSize, borderRadius: 8 },
