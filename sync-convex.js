@@ -1,1 +1,18 @@
-const fs = require('fs');\nconst path = require('path');\n\nfunction copyFolderRecursiveSync(source, target) {\n  if (!fs.existsSync(target)) {\n    fs.mkdirSync(target, { recursive: true });\n  }\n\n  if (fs.lstatSync(source).isDirectory()) {\n    const files = fs.readdirSync(source);\n    files.forEach(file => {\n      const curSource = path.join(source, file);\n      const curTarget = path.join(target, file);\n      \n      if (fs.lstatSync(curSource).isDirectory()) {\n        copyFolderRecursiveSync(curSource, curTarget);\n      } else {\n        fs.copyFileSync(curSource, curTarget);\n      }\n    });\n  }\n}\n\nfunction removeFolderRecursive(folderPath) {\n  if (fs.existsSync(folderPath)) {\n    fs.rmSync(folderPath, { recursive: true, force: true });\n  }\n}\n\nconsole.log('🔄 Syncing Convex folders...');\n\n// 1. Remove mobile/convex folder\nconsole.log('📱 Removing mobile/convex...');\nremoveFolderRecursive('./mobile/convex');\n\n// 2. Remove web/convex folder\nconsole.log('🌐 Removing web/convex...');\nremoveFolderRecursive('./web/convex');\n\n// 3. Copy convex to mobile\nconsole.log('📱 Copying convex to mobile...');\ncopyFolderRecursiveSync('./convex', './mobile/convex');\n\n// 4. Copy convex to web\nconsole.log('🌐 Copying convex to web...');\ncopyFolderRecursiveSync('./convex', './web/convex');\n\nconsole.log('✅ Done! Convex folders synchronized.');\n"
+const fs = require('fs');
+
+// The custom copyFolderRecursiveSync function is no longer needed.
+// The custom removeFolderRecursive function can also be inlined for simplicity.
+
+console.log('🔄 Syncing Convex folders...');
+
+// 1. & 2. Remove mobile and web convex folders if they exist.
+console.log('🗑️  Removing old directories...');
+fs.rmSync('./mobile/convex', { recursive: true, force: true });
+fs.rmSync('./web/convex', { recursive: true, force: true });
+
+// 3. & 4. Copy the main convex folder to mobile and web using the built-in method.
+console.log('📲➡️💻 Copying source directory...');
+fs.cpSync('./convex', './mobile/convex', { recursive: true });
+fs.cpSync('./convex', './web/convex', { recursive: true });
+
+console.log('✅ Done! Convex folders synchronized.');

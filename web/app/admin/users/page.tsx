@@ -63,12 +63,23 @@ interface UserWithStats {
     resolvedIssues: number;
   };
 }
+type ColumnKey =
+  | "user"
+  | "role"
+  | "email"
+  | "phone"
+  | "location"
+  | "totalIssues"
+  | "pendingIssues"
+  | "resolvedIssues"
+  | "joinedOn";
 
+  type ColumnVisibility = Record<ColumnKey, boolean>;
 export default function UsersPage() {
   const { user } = useUser();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
-  const [columnVisibility, setColumnVisibility] = useState({
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
     user: true,
     role: true,
     email: true,
@@ -183,30 +194,32 @@ export default function UsersPage() {
           </Select>
         </div>
         {/* Column Visibility Toggle */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Columns <UsersIcon className="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {Object.entries(columnVisibility).map(([key, isVisible]) => (
-              <DropdownMenuCheckboxItem
-                key={key}
-                className="capitalize"
-                checked={isVisible}
-                onCheckedChange={() =>
-                  setColumnVisibility((prev) => ({
-                    ...prev,
-                    [key]: !prev[key]
-                  }))
-                }
-              >
-                {key.replace(/([A-Z])/g, ' $1')}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button variant="outline" className="ml-auto">
+        Columns <UsersIcon className="ml-2 h-4 w-4" />
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end">
+      {(
+        Object.entries(columnVisibility) as [ColumnKey, boolean][]
+      ).map(([key, isVisible]) => (
+        <DropdownMenuCheckboxItem
+          key={key}
+          className="capitalize"
+          checked={isVisible}
+          onCheckedChange={() =>
+            setColumnVisibility((prev) => ({
+              ...prev,
+              [key]: !prev[key], // ✅ no more error
+            }))
+          }
+        >
+          {key.replace(/([A-Z])/g, " $1")}
+        </DropdownMenuCheckboxItem>
+      ))}
+    </DropdownMenuContent>
+  </DropdownMenu>
       </div>
 
       {/* Users Table */}
