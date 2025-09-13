@@ -59,20 +59,17 @@ export default function AdminLayout({
   const { user, isLoaded } = useUser();
   const pathname = usePathname();
 
-  // Get user data from Convex to check role
   const convexUser = useQuery(
     api.users.getUserByClerkId,
     user?.id ? { clerkId: user.id } : "skip"
   );
 
-  // Get stats for badges
   const issues = useQuery(api.civicIssues.getIssues, { limit: 1000 });
   const departments = useQuery(api.departments.getDepartments, {});
   const pendingCount = issues?.filter(issue => issue.status === 'pending').length || 0;
   const totalUsers = useQuery(api.users.getAllUsers, {})?.length || 0;
   const totalDepartments = departments?.length || 0;
 
-  // Show loading state while checking authentication
   if (!isLoaded || (user && convexUser === undefined)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -81,12 +78,10 @@ export default function AdminLayout({
     );
   }
 
-  // Redirect non-authenticated users
   if (!user) {
     redirect("/");
   }
 
-  // Redirect non-admin users
   if (convexUser && convexUser.role !== "admin") {
     redirect("/");
   }
@@ -153,12 +148,11 @@ export default function AdminLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card/95 backdrop-blur sticky top-0 z-50">
         <div className="flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <div className="h-16 w-16 rounded-lg  flex items-center justify-center">
+              <div className="h-16 w-16 rounded-lg flex items-center justify-center">
                 <img src="/logo.png" alt="" className="h-16 w-16 rounded-lg" />
               </div>
               <div>
@@ -186,16 +180,16 @@ export default function AdminLayout({
           </div>
         </div>
       </header>
-      <div className="flex">
-        {/* Sidebar */}
-        <nav className="w-64 border-r border-border bg-card/50 min-h-[calc(100vh-4rem)] p-4">
+      {/* FIX 1: Set the height of the main flex container */}
+      <div className="flex h-[calc(100vh-4rem)]">
+        {/* FIX 2: Allow the sidebar to scroll its own content if it's too long */}
+        <nav className="w-64 border-r border-border bg-card/50 p-4 overflow-y-auto">
           <div className="space-y-2">
             {sidebarItems.map((item) => (
               <SidebarItem key={item.href} {...item} />
             ))}
           </div>
 
-          {/* Quick Actions */}
           <div className="mt-8 pt-4 border-t border-border">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
               Quick Actions
@@ -211,7 +205,7 @@ export default function AdminLayout({
               ))}
             </div>
           </div>
-          {/* Settings */}
+          
           <div className="mt-8 pt-4 border-t border-border">
             <Link href="/admin/settings">
               <Button
@@ -224,8 +218,8 @@ export default function AdminLayout({
             </Link>
           </div>
         </nav>
-        {/* Main Content */}
-        <main className="flex-1 p-6">
+        {/* FIX 3: Make the main content area scrollable */}
+        <main className="flex-1 p-6 overflow-y-auto">
           {children}
         </main>
       </div>
