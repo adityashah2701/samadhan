@@ -73,104 +73,102 @@ interface Department {
 }
 
 // Memoized DepartmentForm Component
-const DepartmentForm = React.memo(({
-  onSubmit,
-  isEdit = false,
-  formData,
-  onFormChange,
-  onCancel,
-}: {
-  onSubmit: (e: React.FormEvent) => void;
-  isEdit?: boolean;
-  formData: any;
-  onFormChange: (key: string, value: string) => void;
-  onCancel: () => void;
-}) => {
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Department Name */}
+const DepartmentForm = React.memo(
+  ({
+    onSubmit,
+    isEdit = false,
+    formData,
+    onFormChange,
+    onCancel,
+  }: {
+    onSubmit: (e: React.FormEvent) => void;
+    isEdit?: boolean;
+    formData: any;
+    onFormChange: (key: string, value: string) => void;
+    onCancel: () => void;
+  }) => {
+    return (
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Department Name */}
+          <div className="space-y-2">
+            <Label htmlFor="name">Department Name *</Label>
+            <Input
+              id="name"
+              placeholder="e.g. Public Works Department"
+              value={formData.name}
+              onChange={(e) => onFormChange("name", e.target.value)}
+              required
+              autoComplete="off"
+            />
+          </div>
+
+          {/* Head of Department */}
+          <div className="space-y-2">
+            <Label htmlFor="headOfDepartment">Head of Department</Label>
+            <Input
+              id="headOfDepartment"
+              placeholder="e.g. John Smith"
+              value={formData.headOfDepartment}
+              onChange={(e) => onFormChange("headOfDepartment", e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+        </div>
+
+        {/* Description */}
         <div className="space-y-2">
-          <Label htmlFor="name">Department Name *</Label>
-          <Input
-            id="name"
-            placeholder="e.g. Public Works Department"
-            value={formData.name}
-            onChange={(e) => onFormChange("name", e.target.value)}
+          <Label htmlFor="description">Description *</Label>
+          <Textarea
+            id="description"
+            placeholder="Brief description of the department's responsibilities..."
+            value={formData.description}
+            onChange={(e) => onFormChange("description", e.target.value)}
             required
-            autoComplete="off"
+            rows={3}
           />
         </div>
 
-        {/* Head of Department */}
-        <div className="space-y-2">
-          <Label htmlFor="headOfDepartment">Head of Department</Label>
-          <Input
-            id="headOfDepartment"
-            placeholder="e.g. John Smith"
-            value={formData.headOfDepartment}
-            onChange={(e) => onFormChange("headOfDepartment", e.target.value)}
-            autoComplete="off"
-          />
-        </div>
-      </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Contact Email */}
+          <div className="space-y-2">
+            <Label htmlFor="contactEmail">Contact Email</Label>
+            <Input
+              id="contactEmail"
+              type="email"
+              placeholder="department@example.com"
+              value={formData.contactEmail}
+              onChange={(e) => onFormChange("contactEmail", e.target.value)}
+              autoComplete="off"
+            />
+          </div>
 
-      {/* Description */}
-      <div className="space-y-2">
-        <Label htmlFor="description">Description *</Label>
-        <Textarea
-          id="description"
-          placeholder="Brief description of the department's responsibilities..."
-          value={formData.description}
-          onChange={(e) => onFormChange("description", e.target.value)}
-          required
-          rows={3}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Contact Email */}
-        <div className="space-y-2">
-          <Label htmlFor="contactEmail">Contact Email</Label>
-          <Input
-            id="contactEmail"
-            type="email"
-            placeholder="department@example.com"
-            value={formData.contactEmail}
-            onChange={(e) => onFormChange("contactEmail", e.target.value)}
-            autoComplete="off"
-          />
+          {/* Contact Phone */}
+          <div className="space-y-2">
+            <Label htmlFor="contactPhone">Contact Phone</Label>
+            <Input
+              id="contactPhone"
+              type="tel"
+              placeholder="+1 (555) 123-4567"
+              value={formData.contactPhone}
+              onChange={(e) => onFormChange("contactPhone", e.target.value)}
+              autoComplete="off"
+            />
+          </div>
         </div>
 
-        {/* Contact Phone */}
-        <div className="space-y-2">
-          <Label htmlFor="contactPhone">Contact Phone</Label>
-          <Input
-            id="contactPhone"
-            type="tel"
-            placeholder="+1 (555) 123-4567"
-            value={formData.contactPhone}
-            onChange={(e) => onFormChange("contactPhone", e.target.value)}
-            autoComplete="off"
-          />
-        </div>
-      </div>
-
-      <DialogFooter>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-        >
-          Cancel
-        </Button>
-        <Button type="submit">
-          {isEdit ? "Update Department" : "Create Department"}
-        </Button>
-      </DialogFooter>
-    </form>
-  );
-});
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit">
+            {isEdit ? "Update Department" : "Create Department"}
+          </Button>
+        </DialogFooter>
+      </form>
+    );
+  }
+);
 
 export default function DepartmentsPage() {
   const { user } = useUser();
@@ -206,7 +204,7 @@ export default function DepartmentsPage() {
   const handleFormChange = useCallback((key: string, value: string) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   }, []);
-  
+
   // New: Memoize the reset form handler
   const resetForm = useCallback(() => {
     setFormData({
@@ -515,7 +513,7 @@ export default function DepartmentsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto px-3">
             <Table>
               <TableHeader>
                 <TableRow className="border-border/50">
@@ -529,7 +527,6 @@ export default function DepartmentsPage() {
                     Contact Information
                   </TableHead>
                   <TableHead className="w-[120px] py-4">Status</TableHead>
-                  <TableHead className="w-[150px] py-4">Performance</TableHead>
                   <TableHead className="w-[120px] py-4">Created Date</TableHead>
                   <TableHead className="text-right w-[150px] py-4">
                     Actions
@@ -632,26 +629,6 @@ export default function DepartmentsPage() {
                       </TableCell>
 
                       {/* Performance */}
-                      <TableCell className="py-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">
-                              Issues:
-                            </span>
-                            <span className="text-xs font-medium">
-                              {department.totalIssues}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">
-                              Resolved:
-                            </span>
-                            <span className="text-xs font-medium text-green-500">
-                              {department.resolutionRate}%
-                            </span>
-                          </div>
-                        </div>
-                      </TableCell>
 
                       {/* Created Date */}
                       <TableCell className="py-4">
