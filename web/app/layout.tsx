@@ -19,6 +19,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Samadhan - Admin Dashboard",
   description: "Advanced Civic Issues Management System",
+  icons:{
+    icon:"/logo.png"
+  }
 };
 
 export default function RootLayout({

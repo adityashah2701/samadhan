@@ -158,8 +158,8 @@ export default function AdminLayout({
         <div className="flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg  flex items-center justify-center">
-                <img src="./logo.png" alt="" className="h-8 w-8 rounded-lg" />
+              <div className="h-16 w-16 rounded-lg  flex items-center justify-center">
+                <img src="/logo.png" alt="" className="h-16 w-16 rounded-lg" />
               </div>
               <div>
                 <h1 className="text-lg font-bold">Samadhan Admin</h1>
