@@ -112,6 +112,7 @@ export default defineSchema({
     title: v.string(),
     message: v.string(),
     type: v.union(
+      v.literal("issue_created"),
       v.literal("issue_update"),
       v.literal("issue_resolved"),
       v.literal("new_comment"),

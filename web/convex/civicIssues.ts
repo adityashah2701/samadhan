@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // Create a new civic issue report with file upload support
 export const createIssue = mutation({
@@ -61,6 +62,17 @@ export const createIssue = mutation({
       note: "Issue reported",
       isPublic: true,
       createdAt: now,
+    });
+
+    // Generate issue tracking number
+    const issueNumber = `SMD-${issueId.slice(-6).toUpperCase()}`;
+
+    // Send notification to user about successful issue creation
+    await ctx.runMutation(internal.notifications.notifyIssueCreated, {
+      userId: args.reportedBy,
+      issueId,
+      issueTitle: args.title,
+      issueNumber,
     });
 
     return issueId;
@@ -289,6 +301,16 @@ export const updateIssueStatus = mutation({
       createdAt: now,
     });
 
+    // Send notification to issue reporter about status change
+    await ctx.runMutation(internal.notifications.notifyStatusUpdate, {
+      userId: issue.reportedBy,
+      issueId: args.issueId,
+      issueTitle: issue.title,
+      previousStatus: issue.status,
+      newStatus: args.newStatus,
+      note: args.note,
+    });
+
     return true;
   },
 });
@@ -309,6 +331,27 @@ export const addComment = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Get issue details for notification
+    const issue = await ctx.db.get(args.issueId);
+    if (issue) {
+      // Get commenter details
+      const commenter = await ctx.db.get(args.userId);
+      const commenterName = commenter ? 
+        `${commenter.firstName || ''} ${commenter.lastName || ''}`.trim() || 'Someone' :
+        'Someone';
+
+      // Only notify the issue reporter if the commenter is not the same person
+      if (issue.reportedBy !== args.userId) {
+        await ctx.runMutation(internal.notifications.notifyNewComment, {
+          userId: issue.reportedBy,
+          issueId: args.issueId,
+          issueTitle: issue.title,
+          commenterName,
+          isOfficial: args.isOfficial,
+        });
+      }
+    }
 
     return commentId;
   },

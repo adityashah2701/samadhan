@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   View, 
   Text, 
@@ -13,78 +13,66 @@ import { useQuery, useMutation } from 'convex/react'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
-
-// Mock notifications data - In production, this would come from Convex
-const MOCK_NOTIFICATIONS = [
-  {
-    id: '1',
-    title: 'Issue Status Updated',
-    message: 'Your water supply issue has been acknowledged by the Water Department.',
-    type: 'issue_update',
-    relatedIssueId: 'issue1',
-    isRead: false,
-    createdAt: Date.now() - 2 * 60 * 60 * 1000, // 2 hours ago
-  },
-  {
-    id: '2',
-    title: 'New Comment on Your Issue',
-    message: 'The Public Works Department has added a comment to your road pothole report.',
-    type: 'new_comment',
-    relatedIssueId: 'issue2',
-    isRead: false,
-    createdAt: Date.now() - 5 * 60 * 60 * 1000, // 5 hours ago
-  },
-  {
-    id: '3',
-    title: 'Issue Resolved',
-    message: 'Great news! Your street lighting issue has been marked as resolved.',
-    type: 'issue_resolved',
-    relatedIssueId: 'issue3',
-    isRead: true,
-    createdAt: Date.now() - 1 * 24 * 60 * 60 * 1000, // 1 day ago
-  },
-  {
-    id: '4',
-    title: 'System Maintenance',
-    message: 'The civic portal will undergo scheduled maintenance tonight from 11 PM to 2 AM.',
-    type: 'system',
-    relatedIssueId: null,
-    isRead: true,
-    createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000, // 2 days ago
-  },
-  {
-    id: '5',
-    title: 'Weekly Summary',
-    message: 'You have 2 active issues and 1 resolved issue this week.',
-    type: 'system',
-    relatedIssueId: null,
-    isRead: true,
-    createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000, // 1 week ago
-  },
-]
+import { api } from '@/convex/_generated/api'
+import { Id } from '@/convex/_generated/dataModel'
+import { useNotifications } from '../hooks/useNotifications'
 
 export default function NotificationsPage() {
   const { user } = useUser()
   const router = useRouter()
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState<'all' | 'unread' | 'issue_update' | 'system'>('all')
+  const { setBadgeCount } = useNotifications()
 
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS)
+  // Get user data from Convex
+  const userData = useQuery(api.users.getUserByClerkId, 
+    user?.id ? { clerkId: user.id } : "skip"
+  )
+
+  // Get notifications from Convex
+  const notifications = useQuery(api.notifications.getUserNotifications, 
+    userData ? { 
+      userId: userData._id,
+      filter: filter,
+      limit: 100
+    } : "skip"
+  )
+
+  // Get notification counts
+  const notificationCounts = useQuery(api.notifications.getNotificationCounts,
+    userData ? { userId: userData._id } : "skip"
+  )
+
+  // Mutations
+  const markAsRead = useMutation(api.notifications.markNotificationAsRead)
+  const markAllAsRead = useMutation(api.notifications.markAllNotificationsAsRead)
+  const deleteNotification = useMutation(api.notifications.deleteNotification)
+
+  // Update badge count when notifications change
+  useEffect(() => {
+    if (notificationCounts?.unread !== undefined) {
+      setBadgeCount(notificationCounts.unread)
+    }
+  }, [notificationCounts?.unread, setBadgeCount])
 
   const onRefresh = async () => {
     setRefreshing(true)
+    // Convex will automatically refetch the data
     setTimeout(() => setRefreshing(false), 1000)
   }
 
-  const markAsRead = (notificationId: string) => {
-    setNotifications(prev => 
-      prev.map(notif => 
-        notif.id === notificationId ? { ...notif, isRead: true } : notif
-      )
-    )
+  const handleMarkAsRead = async (notificationId: Id<"notifications">) => {
+    try {
+      await markAsRead({ notificationId })
+    } catch (error) {
+      console.error('Error marking notification as read:', error)
+      Alert.alert('Error', 'Failed to mark notification as read')
+    }
   }
 
-  const markAllAsRead = () => {
+  const handleMarkAllAsRead = () => {
+    if (!userData) return
+    
     Alert.alert(
       'Mark All as Read',
       'Are you sure you want to mark all notifications as read?',
@@ -92,17 +80,20 @@ export default function NotificationsPage() {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Mark All',
-          onPress: () => {
-            setNotifications(prev => 
-              prev.map(notif => ({ ...notif, isRead: true }))
-            )
+          onPress: async () => {
+            try {
+              await markAllAsRead({ userId: userData._id })
+            } catch (error) {
+              console.error('Error marking all notifications as read:', error)
+              Alert.alert('Error', 'Failed to mark all notifications as read')
+            }
           }
         }
       ]
     )
   }
 
-  const deleteNotification = (notificationId: string) => {
+  const handleDeleteNotification = (notificationId: Id<"notifications">) => {
     Alert.alert(
       'Delete Notification',
       'Are you sure you want to delete this notification?',
@@ -111,40 +102,32 @@ export default function NotificationsPage() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            setNotifications(prev => 
-              prev.filter(notif => notif.id !== notificationId)
-            )
+          onPress: async () => {
+            try {
+              await deleteNotification({ notificationId })
+            } catch (error) {
+              console.error('Error deleting notification:', error)
+              Alert.alert('Error', 'Failed to delete notification')
+            }
           }
         }
       ]
     )
   }
 
-  const handleNotificationPress = (notification: any) => {
+  const handleNotificationPress = async (notification: any) => {
+    // Mark as read if not already read
     if (!notification.isRead) {
-      markAsRead(notification.id)
+      await handleMarkAsRead(notification._id)
     }
 
+    // Navigate to related issue if available
     if (notification.relatedIssueId) {
       router.push(`/(civic)/issues/${notification.relatedIssueId}`)
     }
   }
 
-  const filteredNotifications = notifications.filter(notification => {
-    switch (filter) {
-      case 'unread':
-        return !notification.isRead
-      case 'issue_update':
-        return notification.type === 'issue_update' || notification.type === 'issue_resolved'
-      case 'system':
-        return notification.type === 'system'
-      default:
-        return true
-    }
-  })
-
-  const unreadCount = notifications.filter(n => !n.isRead).length
+  const unreadCount = notificationCounts?.unread || 0
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp)
@@ -166,6 +149,8 @@ export default function NotificationsPage() {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
+      case 'issue_created':
+        return 'add-circle'
       case 'issue_update':
         return 'refresh-circle'
       case 'issue_resolved':
@@ -181,17 +166,49 @@ export default function NotificationsPage() {
 
   const getNotificationColor = (type: string) => {
     switch (type) {
-      case 'issue_update':
+      case 'issue_created':
         return '#3b82f6'
+      case 'issue_update':
+        return '#f59e0b'
       case 'issue_resolved':
         return '#10b981'
       case 'new_comment':
         return '#8b5cf6'
       case 'system':
-        return '#f59e0b'
+        return '#6b7280'
       default:
         return '#6b7280'
     }
+  }
+
+  // Helper function to get status color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return '#f59e0b'
+      case 'acknowledged': return '#3b82f6'
+      case 'in_progress': return '#8b5cf6'
+      case 'resolved': return '#10b981'
+      case 'rejected': return '#ef4444'
+      default: return '#6b7280'
+    }
+  }
+
+  // Show loading state
+  if (!notifications || !notificationCounts) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading notifications...</Text>
+        </View>
+      </SafeAreaView>
+    )
   }
 
   return (
@@ -209,8 +226,12 @@ export default function NotificationsPage() {
             </View>
           )}
         </View>
-        <TouchableOpacity onPress={markAllAsRead}>
-          <Ionicons name="checkmark-done" size={24} color="white" />
+        <TouchableOpacity onPress={handleMarkAllAsRead} disabled={unreadCount === 0}>
+          <Ionicons 
+            name="checkmark-done" 
+            size={24} 
+            color={unreadCount > 0 ? "white" : "rgba(255,255,255,0.5)"} 
+          />
         </TouchableOpacity>
       </View>
 
@@ -219,10 +240,10 @@ export default function NotificationsPage() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.filterTabs}>
             {[
-              { key: 'all', label: 'All', count: notifications.length },
-              { key: 'unread', label: 'Unread', count: unreadCount },
-              { key: 'issue_update', label: 'Issues', count: notifications.filter(n => n.type.includes('issue')).length },
-              { key: 'system', label: 'System', count: notifications.filter(n => n.type === 'system').length }
+              { key: 'all', label: 'All', count: notificationCounts.total },
+              { key: 'unread', label: 'Unread', count: notificationCounts.unread },
+              { key: 'issue_update', label: 'Issues', count: notificationCounts.issueUpdates },
+              { key: 'system', label: 'System', count: notificationCounts.system }
             ].map((tab) => (
               <TouchableOpacity
                 key={tab.key}
@@ -251,10 +272,10 @@ export default function NotificationsPage() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {filteredNotifications.length > 0 ? (
-          filteredNotifications.map((notification) => (
+        {notifications && notifications.length > 0 ? (
+          notifications.map((notification) => (
             <TouchableOpacity 
-              key={notification.id} 
+              key={notification._id} 
               style={[
                 styles.notificationCard,
                 !notification.isRead && styles.unreadNotification
@@ -289,7 +310,7 @@ export default function NotificationsPage() {
                     )}
                     <TouchableOpacity 
                       style={styles.deleteButton}
-                      onPress={() => deleteNotification(notification.id)}
+                      onPress={() => handleDeleteNotification(notification._id)}
                     >
                       <Ionicons name="close" size={16} color="#9ca3af" />
                     </TouchableOpacity>
@@ -299,6 +320,27 @@ export default function NotificationsPage() {
                 <Text style={styles.notificationMessage}>
                   {notification.message}
                 </Text>
+
+                {notification.relatedIssueId && notification.relatedIssue && (
+                  <View style={styles.issueInfo}>
+                    <Text style={styles.issueTitle}>
+                      {notification.relatedIssue.title}
+                    </Text>
+                    <View style={styles.issueMeta}>
+                      <View style={[
+                        styles.statusBadge,
+                        { backgroundColor: getStatusColor(notification.relatedIssue.status) }
+                      ]}>
+                        <Text style={styles.statusText}>
+                          {notification.relatedIssue.status.replace('_', ' ').toUpperCase()}
+                        </Text>
+                      </View>
+                      <Text style={styles.issueCategory}>
+                        {notification.relatedIssue.category}
+                      </Text>
+                    </View>
+                  </View>
+                )}
 
                 {notification.relatedIssueId && (
                   <View style={styles.actionButton}>
@@ -326,7 +368,7 @@ export default function NotificationsPage() {
       {/* Quick Actions */}
       {unreadCount > 0 && (
         <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.quickActionButton} onPress={markAllAsRead}>
+          <TouchableOpacity style={styles.quickActionButton} onPress={handleMarkAllAsRead}>
             <Ionicons name="checkmark-done" size={20} color="#16a34a" />
             <Text style={styles.quickActionText}>Mark All Read</Text>
           </TouchableOpacity>
@@ -340,6 +382,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6b7280',
   },
   header: {
     backgroundColor: '#16a34a',
@@ -472,6 +523,37 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     lineHeight: 20,
     marginBottom: 12,
+  },
+  issueInfo: {
+    backgroundColor: '#f9fafb',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  issueTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  issueMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  issueCategory: {
+    fontSize: 12,
+    color: '#6b7280',
   },
   actionButton: {
     flexDirection: 'row',

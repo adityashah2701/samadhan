@@ -24,6 +24,7 @@ import * as Location from "expo-location";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { useNotificationContext } from '../components/NotificationProvider';
 
 const CATEGORIES = [
   "Infrastructure", "Roads", "Water Supply", "Sanitation", "Electricity",
@@ -108,6 +109,7 @@ export default function ReportIssuePage() {
   const convexUser = useQuery(api.users.getUserByClerkId, user ? { clerkId: user.id } : "skip");
   const createIssue = useMutation(api.civicIssues.createIssue);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const { sendLocalNotificationForIssue } = useNotificationContext();
 
   const [formData, setFormData] = useState({
     title: "", description: "", category: "", address: "",
@@ -226,7 +228,7 @@ export default function ReportIssuePage() {
     setIsSubmitting(true);
     try {
       const imageStorageIds = images.filter((img) => img.storageId).map((img) => img.storageId!);
-      await createIssue({
+      const issueId = await createIssue({
         reportedBy: convexUser._id,
         title: formData.title.trim(),
         description: formData.description.trim(),
@@ -239,6 +241,11 @@ export default function ReportIssuePage() {
         priority: formData.priority,
         images: imageStorageIds.length > 0 ? imageStorageIds : undefined,
       });
+      
+      // Send local notification
+      const issueNumber = `SMD-${issueId.slice(-6).toUpperCase()}`;
+      sendLocalNotificationForIssue(formData.title.trim(), issueNumber);
+      
       setSuccessModalVisible(true);
     } catch (error) {
       console.error("Error creating issue:", error);
