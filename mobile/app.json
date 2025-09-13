@@ -1,0 +1,75 @@
+{
+  "expo": {
+    "name": "Samadhan",
+    "slug": "samadhan",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "scheme": "samadhan",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "developmentClient": {
+      "silentLaunch": true
+    },
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.adityashah27.samadhan",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "This app needs location access to provide location-based services.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs location access to provide location-based services."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#0f172a"
+      },
+      "package": "com.adityashah27.samadhan",
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/logo.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logo.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0f172a",
+          "dark": {
+            "image": "./assets/logo.png",
+            "backgroundColor": "#0f172a"
+          }
+        }
+      ],
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-location"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e7b433c9-4b7c-4b8e-bbfc-453d36608c00"
+      }
+    }
+  }
+}
