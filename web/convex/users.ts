@@ -124,6 +124,9 @@ export const getUserWithStats = query({
 export const getAllUsers = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("users").collect();
+    return await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("role"), "citizen"))
+      .collect();
   },
 });

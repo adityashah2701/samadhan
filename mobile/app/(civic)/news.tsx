@@ -1,174 +1,195 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Dimensions, SafeAreaView, Linking } from "react-native"
+import React, { useState, useRef, useEffect } from "react"
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  Dimensions,
+  Linking,
+  ActivityIndicator,
+  Image,
+} from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useRouter } from "expo-router"
-
-const NEWS_DATA = [
-  {
-    id: "1",
-    title: "New Water Supply Project Launched in Ranchi",
-    content: "The Jharkhand government has announced a major water supply project covering 15 wards in Ranchi.",
-    category: "Infrastructure",
-    publishedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
-    department: "Water Resources Department",
-    link: "https://jharkhand.gov.in/water",
-    icon: "water",
-  },
-  {
-    id: "2",
-    title: "Road Maintenance Drive to Begin in Jamshedpur",
-    content: "Jamshedpur Municipal Corporation will begin a comprehensive road maintenance drive starting next week.",
-    category: "Roads",
-    publishedAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
-    department: "Public Works Department",
-    link: "https://jharkhand.gov.in/pwd",
-    icon: "car-sport",
-  },
-  {
-    id: "3",
-    title: "Digital Citizen Portal is Now Live for All Districts",
-    content: "The new digital citizen portal for reporting civic issues is now live across all districts.",
-    category: "Technology",
-    publishedAt: Date.now() - 5 * 60 * 60 * 1000,
-    department: "IT & e-Governance Department",
-    link: "https://jharkhand.gov.in/it",
-    icon: "phone-portrait",
-  },
-  {
-    id: "4",
-    title: "Healthcare Initiative Reaches Rural Areas",
-    content: "Mobile healthcare units are now serving remote villages with essential medical services.",
-    category: "Healthcare",
-    publishedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-    department: "Health Department",
-    link: "https://jharkhand.gov.in/health",
-    icon: "medical",
-  },
-  {
-    id: "5",
-    title: "Education Reform Program Launched",
-    content: "New digital learning initiatives are being rolled out across government schools.",
-    category: "Education",
-    publishedAt: Date.now() - 4 * 24 * 60 * 60 * 1000,
-    department: "Education Department",
-    link: "https://jharkhand.gov.in/education",
-    icon: "school",
-  },
-  {
-    id: "6",
-    title: "Environmental Conservation Drive",
-    content: "Tree plantation drive aims to plant 1 million trees across the state this year.",
-    category: "Environment",
-    publishedAt: Date.now() - 6 * 24 * 60 * 60 * 1000,
-    department: "Forest Department",
-    link: "https://jharkhand.gov.in/forest",
-    icon: "leaf",
-  },
-]
+import { SafeAreaView } from "react-native-safe-area-context"
 
 const { width } = Dimensions.get("window")
 const CARD_WIDTH = width * 0.8
 const CARD_SPACING = 16
 
+interface NewsArticle {
+  id: string
+  title: string
+  content: string
+  category: string
+  publishedAt: number
+  link: string
+  icon: string
+  imageUrl: string | null
+}
+
 export default function NewsCarousel() {
   const router = useRouter()
   const flatListRef = useRef<FlatList>(null)
+
+  const [newsData, setNewsData] = useState<NewsArticle[]>([])
+  const [infiniteData, setInfiniteData] = useState<NewsArticle[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
 
-  const infiniteData = [...NEWS_DATA, ...NEWS_DATA, ...NEWS_DATA]
-  const initialIndex = NEWS_DATA.length // Start from the middle set
+  const initialIndex = React.useMemo(() => newsData.length, [newsData.length])
+
+  const fetchNews = async () => {
+    const API_KEY = "f9c5d7c1c44d488fb8e592f26ef10ea8"
+    const query = "Jharkhand"
+    const url = `https://newsapi.org/v2/everything?q=${query}&sortBy=publishedAt&language=en&apiKey=${API_KEY}`
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(url)
+      const data = await response.json()
+
+      if (data.status === "ok") {
+        const formattedData = data.articles
+          // UPDATED: Now includes articles even if they don't have an image
+          .filter((article: any) => article.title && article.description)
+          .slice(0, 10)
+          .map((article: any, index: number) => ({
+            id: `${article.url}-${index}`,
+            title: article.title,
+            content: article.description,
+            category: article.source.name,
+            publishedAt: new Date(article.publishedAt).getTime(),
+            link: article.url,
+            imageUrl: article.urlToImage,
+            icon: getIconForCategory(article.title),
+          }))
+        setNewsData(formattedData)
+        setInfiniteData([...formattedData, ...formattedData, ...formattedData])
+        setCurrentIndex(formattedData.length)
+      } else {
+        throw new Error(data.message || "Failed to fetch news.")
+      }
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
+    fetchNews()
+  }, [])
+
+  useEffect(() => {
+    if (infiniteData.length === 0) return
+
     const interval = setInterval(() => {
       if (flatListRef.current) {
-        const nextIndex = currentIndex + 1
-        flatListRef.current.scrollToIndex({
-          index: nextIndex,
-          animated: true,
-        })
+        let nextIndex = currentIndex + 1
+        if (nextIndex >= newsData.length * 2) {
+          flatListRef.current.scrollToIndex({ index: newsData.length, animated: false })
+          nextIndex = newsData.length + 1
+        }
+        flatListRef.current.scrollToIndex({ index: nextIndex, animated: true })
       }
-    }, 4000) // Auto-scroll every 4 seconds
+    }, 4000)
 
     return () => clearInterval(interval)
-  }, [currentIndex])
+  }, [currentIndex, infiniteData, newsData.length])
+
+  const getIconForCategory = (title: string): string => {
+    const lowerTitle = title.toLowerCase()
+    if (lowerTitle.includes("water")) return "water"
+    if (lowerTitle.includes("road")) return "car-sport"
+    if (lowerTitle.includes("health")) return "medical"
+    if (lowerTitle.includes("school")) return "school"
+    if (lowerTitle.includes("forest")) return "leaf"
+    if (lowerTitle.includes("tech")) return "phone-portrait"
+    return "newspaper"
+  }
+
+  const onMomentumScrollEnd = () => {
+    const currentScrollIndex = currentIndex
+    if (currentScrollIndex >= newsData.length * 2) {
+      const newIndex = currentScrollIndex - newsData.length
+      flatListRef.current?.scrollToIndex({ index: newIndex, animated: false })
+    } else if (currentScrollIndex < newsData.length) {
+      const newIndex = currentScrollIndex + newsData.length
+      flatListRef.current?.scrollToIndex({ index: newIndex, animated: false })
+    }
+  }
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
-      const index = viewableItems[0].index
-      setCurrentIndex(index)
-
-      if (index >= NEWS_DATA.length * 2) {
-        // Reset to beginning of middle set
-        setTimeout(() => {
-          flatListRef.current?.scrollToIndex({
-            index: NEWS_DATA.length,
-            animated: false,
-          })
-          setCurrentIndex(NEWS_DATA.length)
-        }, 100)
-      } else if (index < NEWS_DATA.length) {
-        // Reset to end of middle set
-        setTimeout(() => {
-          flatListRef.current?.scrollToIndex({
-            index: NEWS_DATA.length * 2 - 1,
-            animated: false,
-          })
-          setCurrentIndex(NEWS_DATA.length * 2 - 1)
-        }, 100)
-      }
+      setCurrentIndex(viewableItems[0].index)
     }
   }).current
 
-  const viewabilityConfig = useRef({
-    viewAreaCoveragePercentThreshold: 50,
-    minimumViewTime: 300,
-  }).current
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp)
-    const now = new Date()
-    const diffTime = Math.abs(now.getTime() - date.getTime())
-    const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
-
-    if (diffHours < 1) return "Just now"
-    if (diffHours < 24) return `${diffHours}h ago`
     return date.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
   }
 
-  const renderItem = ({ item }: { item: (typeof NEWS_DATA)[0] }) => (
+  const renderItem = ({ item }: { item: NewsArticle }) => (
     <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.iconContainer}>
-          <Ionicons name={item.icon as any} size={24} color="#16a34a" />
+      {/* --- CONDITIONAL RENDERING FOR IMAGE OR PLACEHOLDER --- */}
+      {item.imageUrl ? (
+        <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
+      ) : (
+        <View style={styles.imagePlaceholder}>
+          <Ionicons name={item.icon as any} size={60} color="#9ca3af" />
+          <Text style={styles.placeholderCategoryText}>{item.category}</Text>
         </View>
-        <View style={styles.categoryBadge}>
-          <Text style={styles.categoryText}>{item.category}</Text>
+      )}
+      <View style={styles.textContainer}>
+        <View>
+          <Text style={styles.categoryText} numberOfLines={1}>{item.category}</Text>
+          <Text style={styles.titleText} numberOfLines={3}>{item.title}</Text>
+          <Text style={styles.dateText}>{formatDate(item.publishedAt)}</Text>
         </View>
+        <TouchableOpacity style={styles.readMoreButton} onPress={() => Linking.openURL(item.link)}>
+          <Text style={styles.readMoreButtonText}>Read More</Text>
+          <Ionicons name="arrow-forward" size={14} color="#16a3a" />
+        </TouchableOpacity>
       </View>
-
-      <View style={styles.cardContent}>
-        <Text style={styles.dateText}>{formatDate(item.publishedAt)}</Text>
-        <Text style={styles.titleText}>{item.title}</Text>
-        <Text style={styles.contentText} numberOfLines={3}>
-          {item.content}
-        </Text>
-        <Text style={styles.departmentText}>{item.department}</Text>
-      </View>
-
-      <TouchableOpacity style={styles.readMoreButton} onPress={() => Linking.openURL(item.link)}>
-        <Text style={styles.readMoreButtonText}>Read More</Text>
-        <Ionicons name="arrow-forward" size={14} color="#16a34a" />
-      </TouchableOpacity>
     </View>
   )
-
-  const getItemLayout = (data: any, index: number) => ({
+  
+  const getItemLayout = (_: any, index: number) => ({
     length: CARD_WIDTH + CARD_SPACING,
     offset: (CARD_WIDTH + CARD_SPACING) * index,
     index,
   })
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.centeredContainer}>
+        <ActivityIndicator size="large" color="#16a3a" />
+        <Text style={styles.infoText}>Fetching latest news...</Text>
+      </SafeAreaView>
+    )
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.centeredContainer}>
+        <Ionicons name="cloud-offline-outline" size={48} color="#ef4444" />
+        <Text style={styles.infoText}>Error: {error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchNews}>
+          <Text style={styles.retryButtonText}>Try Again</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    )
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -193,34 +214,26 @@ export default function NewsCarousel() {
           decelerationRate="fast"
           contentContainerStyle={styles.flatListContent}
           onViewableItemsChanged={onViewableItemsChanged}
+          onMomentumScrollEnd={onMomentumScrollEnd}
           viewabilityConfig={viewabilityConfig}
           getItemLayout={getItemLayout}
           initialScrollIndex={initialIndex}
-          onScrollToIndexFailed={() => {
-            // Handle scroll to index failure
-            setTimeout(() => {
-              flatListRef.current?.scrollToIndex({
-                index: initialIndex,
-                animated: false,
-              })
-            }, 100)
-          }}
         />
       </View>
 
-      <View style={styles.paginationContainer}>
-        {NEWS_DATA.map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.paginationDot,
-              {
-                backgroundColor: currentIndex % NEWS_DATA.length === index ? "#16a34a" : "#d1d5db",
-              },
-            ]}
-          />
-        ))}
-      </View>
+      {newsData.length > 0 && (
+        <View style={styles.paginationContainer}>
+          {newsData.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.paginationDot,
+                { backgroundColor: currentIndex % newsData.length === index ? "#16a3a" : "#d1d5db" },
+              ]}
+            />
+          ))}
+        </View>
+      )}
     </SafeAreaView>
   )
 }
@@ -228,13 +241,39 @@ export default function NewsCarousel() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#f9fafb",
+  },
+  centeredContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#f9fafb",
+  },
+  infoText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#4b5563",
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: "#16a3a",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     padding: 16,
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: "#f3f4f6",
   },
@@ -245,60 +284,54 @@ const styles = StyleSheet.create({
   },
   carouselContainer: {
     flex: 1,
-    paddingVertical: 20,
+    paddingVertical: 24,
   },
   flatListContent: {
-    paddingHorizontal: CARD_SPACING,
+    paddingHorizontal: (width - CARD_WIDTH) / 2,
   },
   card: {
     width: CARD_WIDTH,
+    height: '100%',
     backgroundColor: "#ffffff",
     borderRadius: 16,
-    marginRight: CARD_SPACING,
-    padding: 20,
+    marginHorizontal: CARD_SPACING / 2,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: "#f3f4f6",
+    shadowRadius: 10,
+    elevation: 5,
+    overflow: 'hidden',
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
+  cardImage: {
+    width: '100%',
+    height: '50%',
+    backgroundColor: '#e5e7eb',
   },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#f0fdf4",
-    justifyContent: "center",
-    alignItems: "center",
+  // --- NEW STYLES FOR PLACEHOLDER ---
+  imagePlaceholder: {
+    width: '100%',
+    height: '50%',
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
-  categoryBadge: {
-    backgroundColor: "#dcfce7",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+  placeholderCategoryText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9ca3af',
+  },
+  textContainer: {
+    flex: 1,
+    padding: 16,
+    justifyContent: 'space-between',
   },
   categoryText: {
     color: "#15803d",
     fontSize: 12,
     fontWeight: "600",
-  },
-  cardContent: {
-    flex: 1,
-    marginBottom: 16,
-  },
-  dateText: {
-    fontSize: 12,
-    color: "#6b7280",
     marginBottom: 8,
   },
   titleText: {
@@ -306,33 +339,24 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#1f2937",
     lineHeight: 24,
-    marginBottom: 12,
   },
-  contentText: {
-    fontSize: 14,
-    color: "#4b5563",
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  departmentText: {
+  dateText: {
     fontSize: 12,
-    color: "#9ca3af",
-    fontStyle: "italic",
+    color: "#6b7280",
+    marginTop: 4,
   },
   readMoreButton: {
+    marginTop: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#16a34a",
     backgroundColor: "#f0fdf4",
     gap: 6,
   },
   readMoreButtonText: {
-    color: "#16a34a",
+    color: "#16a3a",
     fontSize: 14,
     fontWeight: "600",
   },
