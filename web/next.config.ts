@@ -1,21 +1,19 @@
 import type { NextConfig } from "next";
-import path from "path";
-const withTM = require("next-transpile-modules")([
-  "../backend", // tell Next to transpile backend
-]);
 
-const nextConfig: NextConfig = withTM({
-  experimental: {
-    turbo: {
-      resolveAlias: {
-        "@backend": path.resolve(__dirname, "../backend"),
-      },
-    },
-  },
-  webpack: (config:any) => {
-    config.resolve.alias["@backend"] = path.resolve(__dirname, "../backend");
+const nextConfig: NextConfig = {
+  webpack: (config: any) => {
+    // Allow webpack to handle .mjs files
+    config.module.rules.push({
+      test: /\.mjs$/,
+      include: /node_modules/,
+      type: "javascript/auto",
+    });
     return config;
   },
-});
+  experimental: {
+    esmExternals: "loose",
+  },
+  transpilePackages: ["convex"],
+};
 
 export default nextConfig;

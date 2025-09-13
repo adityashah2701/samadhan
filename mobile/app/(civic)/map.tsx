@@ -8,12 +8,12 @@ import {
   Dimensions
 } from 'react-native'
 import { useQuery } from 'convex/react'
-import { api } from '../../../backend/convex/_generated/api'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { WebView } from 'react-native-webview'
 import * as Location from 'expo-location'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { api } from '@/convex/_generated/api'
 
 const { width, height } = Dimensions.get('window')
 

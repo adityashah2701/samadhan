@@ -14,13 +14,13 @@ import {
 } from "react-native";
 import { useUser } from "@clerk/clerk-expo";
 import { useMutation, useQuery } from "convex/react";
-import { api } from '../../../backend/convex/_generated/api';
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
-import { Id } from "../../../backend/convex/_generated/dataModel";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 
 const CATEGORIES = [
   "Infrastructure",

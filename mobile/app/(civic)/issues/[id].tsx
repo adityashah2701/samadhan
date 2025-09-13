@@ -14,10 +14,10 @@ import {
 } from "react-native";
 import { useUser } from "@clerk/clerk-expo";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { api } from "@/convex/_generated/api";
 
 export default function IssueDetailPage() {
   const { id } = useLocalSearchParams();

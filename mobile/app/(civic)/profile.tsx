@@ -12,10 +12,10 @@ import {
 } from 'react-native'
 import { useUser, useAuth } from '@clerk/clerk-expo'
 import { useQuery, useMutation } from 'convex/react'
-import { api } from '../../../backend/convex/_generated/api'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { api } from '@/convex/_generated/api'
 
 export default function ProfilePage() {
   const { user } = useUser()

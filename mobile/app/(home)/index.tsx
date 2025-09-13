@@ -16,7 +16,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
-import { api } from '../../../backend/convex/_generated/api'
+import { api } from '@/convex/_generated/api'
 
 const { width: screenWidth } = Dimensions.get('window')
 const isTablet = screenWidth >= 768
