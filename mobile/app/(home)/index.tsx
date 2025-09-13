@@ -539,10 +539,7 @@ export default function HomePage() {
                         {issue.location.city}, {issue.location.district}
                       </Text>
                     </View>
-                    <View style={styles.engagementContainer}>
-                      <Ionicons name="heart" size={14} color="#ef4444" />
-                      <Text style={styles.engagementText}>{issue.upvotes}</Text>
-                    </View>
+                    
                   </View>
                 </View>
               </TouchableOpacity>

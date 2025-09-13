@@ -70,10 +70,10 @@ export default function Index() {
           ]}
         >
           {/* Logo with enhanced styling */}
-          <View style={styles.logoBackground}>
+          
             {/* <View style={styles.logoGlow} /> */}
             <Image source={require('../assets/logo.png')} style={styles.logoImage} />
-          </View>
+         
           
           {/* App title with enhanced styling */}
           <Text style={styles.appTitle}>Samadhan</Text>
@@ -193,8 +193,8 @@ const styles = StyleSheet.create({
   },
 
   logoImage: {
-    width: 120,
-    height: 120,
+    width: '100%',
+    height: '100%',
     resizeMode: 'contain',
   },
 

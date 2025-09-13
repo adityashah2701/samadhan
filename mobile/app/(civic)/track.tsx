@@ -286,7 +286,7 @@ export default function TrackIssuesPage() {
                   </Text>
                 </View>
                 
-                <View style={styles.engagementContainer}>
+                {/* <View style={styles.engagementContainer}>
                   <TouchableOpacity 
                     style={styles.upvoteButton}
                     onPress={() => handleUpvote(issue._id)}
@@ -299,11 +299,8 @@ export default function TrackIssuesPage() {
                     <Text style={styles.upvoteText}>{issue.upvotes}</Text>
                   </TouchableOpacity>
                   
-                  <View style={styles.viewsContainer}>
-                    <Ionicons name="eye-outline" size={14} color="#6b7280" />
-                    <Text style={styles.viewsText}>{issue.viewCount}</Text>
-                  </View>
-                </View>
+                 
+                </View> */}
               </View>
 
               {/* Reporter Info */}
