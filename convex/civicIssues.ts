@@ -26,21 +26,31 @@ export const createIssue = mutation({
       v.literal("high"),
       v.literal("urgent")
     ),
-    images: v.optional(v.array(v.id("_storage"))), // File storage IDs
-    imageUrls: v.optional(v.array(v.string())), // Fallback URLs
+    images: v.optional(v.array(v.id("_storage"))), 
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    
-    const issueId = await ctx.db.insert("civicIssues", {
-      ...args,
-      status: "pending",
+
+    // DON'T generate URLs in mutation - store storage IDs and generate URLs in queries
+    const issueData = {
+      reportedBy: args.reportedBy,
+      title: args.title,
+      description: args.description,
+      category: args.category,
+      subcategory: args.subcategory,
+      location: args.location,
+      priority: args.priority,
+      images: args.images, // Store storage IDs
+      // Don't set imageUrls here - generate them in queries when needed
+      status: "pending" as const,
       upvotes: 0,
       upvotedBy: [],
       viewCount: 0,
       createdAt: now,
       updatedAt: now,
-    });
+    };
+
+    const issueId = await ctx.db.insert("civicIssues", issueData);
 
     // Create initial status update
     await ctx.db.insert("statusUpdates", {
@@ -56,8 +66,8 @@ export const createIssue = mutation({
     return issueId;
   },
 });
-
 // Get all issues with filters
+// Updated getIssues query - generate imageUrls dynamically
 export const getIssues = query({
   args: {
     status: v.optional(v.string()),
@@ -89,12 +99,27 @@ export const getIssues = query({
       });
     }
 
-    // Get reporter details for each issue
-    const issuesWithReporter = await Promise.all(
+    // Get reporter details and generate image URLs for each issue
+    const issuesWithDetails = await Promise.all(
       issues.map(async (issue) => {
         const reporter = await ctx.db.get(issue.reportedBy);
+        
+        // Generate image URLs from storage IDs
+        let imageUrls: string[] = [];
+        if (issue.images && issue.images.length > 0) {
+          imageUrls = await Promise.all(
+            issue.images.map(async (storageId) => {
+              const url = await ctx.storage.getUrl(storageId);
+              return url || "";
+            })
+          );
+          // Filter out empty URLs
+          imageUrls = imageUrls.filter(url => url !== "");
+        }
+        
         return {
           ...issue,
+          imageUrls, // Add the generated URLs
           reporter: reporter ? {
             firstName: reporter.firstName,
             lastName: reporter.lastName,
@@ -104,7 +129,7 @@ export const getIssues = query({
       })
     );
 
-    return issuesWithReporter;
+    return issuesWithDetails;
   },
 });
 
@@ -126,6 +151,19 @@ export const getIssueById = query({
   handler: async (ctx, args) => {
     const issue = await ctx.db.get(args.issueId);
     if (!issue) return null;
+
+    // Generate image URLs from storage IDs
+    let imageUrls: string[] = [];
+    if (issue.images && issue.images.length > 0) {
+      imageUrls = await Promise.all(
+        issue.images.map(async (storageId) => {
+          const url = await ctx.storage.getUrl(storageId);
+          return url || "";
+        })
+      );
+      // Filter out empty URLs
+      imageUrls = imageUrls.filter(url => url !== "");
+    }
 
     // Get reporter details
     const reporter = await ctx.db.get(issue.reportedBy);
@@ -162,6 +200,7 @@ export const getIssueById = query({
 
     return {
       ...issue,
+      imageUrls, // Add the generated URLs
       reporter: reporter ? {
         firstName: reporter.firstName,
         lastName: reporter.lastName,

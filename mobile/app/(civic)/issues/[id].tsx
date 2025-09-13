@@ -11,6 +11,8 @@ import {
   Linking,
   Share,
   Dimensions,
+  Image, // Added for images
+  Modal, // Added for full-screen image view
 } from "react-native";
 import { useUser } from "@clerk/clerk-expo";
 import { useQuery, useMutation } from "convex/react";
@@ -27,6 +29,10 @@ export default function IssueDetailPage() {
   const [comment, setComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
+  // New state for image modal
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
   const convexUser = useQuery(
     api.users.getUserByClerkId,
     user ? { clerkId: user.id } : "skip"
@@ -41,14 +47,16 @@ export default function IssueDetailPage() {
   const toggleUpvote = useMutation(api.civicIssues.toggleUpvote);
   const incrementViewCount = useMutation(api.civicIssues.incrementViewCount);
 
+  // Uncomment this to enable view count incrementing on load
   // useEffect(() => {
-  //   if (issue && convexUser) {
+  //   if (id) {
   //     incrementViewCount({ issueId: id as any });
   //   }
-  // }, [issue, convexUser]);
+  // }, [id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
+    // You might want to re-fetch data here instead of a timeout
     setTimeout(() => setRefreshing(false), 1000);
   };
 
@@ -98,26 +106,16 @@ export default function IssueDetailPage() {
     }
   };
 
-  const handleWhatsAppShare = () => {
-    if (!issue) return;
-
-    const message = `🚨 *Civic Issue Report*\n\n*${issue.title}*\n\n📍 Location: ${issue.location.address}, ${issue.location.city}, ${issue.location.district}\n\n📝 Description: ${issue.description}\n\n🏷️ Category: ${issue.category}\n📊 Status: ${issue.status.replace("_", " ").toUpperCase()}\n⚡ Priority: ${issue.priority.toUpperCase()}\n\n👍 Support this issue by upvoting it in the Jharkhand Civic Portal app!`;
-
-    const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
-
-    Linking.canOpenURL(url)
-      .then((supported) => {
-        if (supported) {
-          Linking.openURL(url);
-        } else {
-          Alert.alert(
-            "WhatsApp not found",
-            "Please install WhatsApp to share via WhatsApp"
-          );
-        }
-      })
-      .catch((error) => console.error("Error opening WhatsApp:", error));
+  // --- Image Modal Handlers ---
+  const handleImagePress = (index: number) => {
+    setSelectedImageIndex(index);
+    setIsModalVisible(true);
   };
+
+  const handleCloseModal = () => {
+    setIsModalVisible(false);
+  };
+  // --- End Image Modal Handlers ---
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -154,8 +152,7 @@ export default function IssueDetailPage() {
   };
 
   const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString("en-IN", {
+    return new Date(timestamp).toLocaleDateString("en-IN", {
       day: "numeric",
       month: "long",
       year: "numeric",
@@ -181,6 +178,8 @@ export default function IssueDetailPage() {
     );
   }
 
+  const hasUpvoted = convexUser && issue.upvotedBy.includes(convexUser._id);
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -195,7 +194,7 @@ export default function IssueDetailPage() {
       </View>
 
       <ScrollView
-        style={styles.content}
+        contentContainerStyle={{ paddingBottom: 20 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -241,11 +240,58 @@ export default function IssueDetailPage() {
           </View>
         </View>
 
+        {/* --- NEW: Images Section --- */}
+        {issue.imageUrls && issue.imageUrls.length > 0 && (
+          <View style={styles.imagesSection}>
+            <Text style={styles.sectionTitleInverted}>Photos</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.imagesContainer}
+            >
+              {issue.imageUrls.map((url, index) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => handleImagePress(index)}
+                >
+                  <Image source={{ uri: url }} style={styles.issueImage} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Engagement Section */}
+        <View style={styles.section}>
+          <View style={styles.engagementContainer}>
+            <TouchableOpacity
+              onPress={handleUpvote}
+              style={[styles.upvoteButton, hasUpvoted && styles.upvotedButton]}
+            >
+              <Ionicons
+                name={
+                  hasUpvoted ? "arrow-up-circle" : "arrow-up-circle-outline"
+                }
+                size={20}
+                color={hasUpvoted ? "white" : "#16a34a"}
+              />
+              <Text
+                style={[styles.upvoteText, hasUpvoted && styles.upvotedText]}
+              >
+                {issue.upvotes} Upvotes
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.viewsContainer}>
+              <Ionicons name="eye-outline" size={16} color="#6b7280" />
+              <Text style={styles.viewsText}>{issue.viewCount} views</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Issue Details */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Description</Text>
           <Text style={styles.description}>{issue.description}</Text>
-
           <View style={styles.tagsContainer}>
             <View style={styles.tag}>
               <Text style={styles.tagText}>{issue.category}</Text>
@@ -259,9 +305,7 @@ export default function IssueDetailPage() {
                       ? "#fef2f2"
                       : issue.priority === "high"
                         ? "#fff7ed"
-                        : issue.priority === "medium"
-                          ? "#fef3c7"
-                          : "#f0fdf4",
+                        : "#f0fdf4",
                 },
               ]}
             >
@@ -274,9 +318,7 @@ export default function IssueDetailPage() {
                         ? "#dc2626"
                         : issue.priority === "high"
                           ? "#ea580c"
-                          : issue.priority === "medium"
-                            ? "#d97706"
-                            : "#16a34a",
+                          : "#16a34a",
                   },
                 ]}
               >
@@ -305,44 +347,6 @@ export default function IssueDetailPage() {
                 </Text>
               )}
             </View>
-          </View>
-        </View>
-
-        {/* Engagement */}
-        <View style={styles.section}>
-          <View style={styles.engagementContainer}>
-            <TouchableOpacity
-              style={styles.upvoteButton}
-              onPress={handleUpvote}
-            >
-              <Ionicons
-                name={
-                  issue.upvotedBy?.includes(convexUser?._id!)
-                    ? "heart"
-                    : "heart-outline"
-                }
-                size={24}
-                color={
-                  issue.upvotedBy?.includes(convexUser?._id!)
-                    ? "#ef4444"
-                    : "#6b7280"
-                }
-              />
-              <Text style={styles.upvoteText}>{issue.upvotes} Support</Text>
-            </TouchableOpacity>
-
-            <View style={styles.viewsContainer}>
-              <Ionicons name="eye-outline" size={20} color="#6b7280" />
-              <Text style={styles.viewsText}>{issue.viewCount} Views</Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.whatsappButton}
-              onPress={handleWhatsAppShare}
-            >
-              <Ionicons name="logo-whatsapp" size={20} color="#25d366" />
-              <Text style={styles.whatsappText}>Share</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -399,16 +403,13 @@ export default function IssueDetailPage() {
           <Text style={styles.sectionTitle}>
             Comments ({issue.comments?.length || 0})
           </Text>
-
-          {/* Add Comment */}
           <View style={styles.addCommentContainer}>
             <TextInput
               style={styles.commentInput}
               value={comment}
               onChangeText={setComment}
-              placeholder="Add a comment..."
+              placeholder="Add a public comment..."
               multiline
-              numberOfLines={3}
             />
             <TouchableOpacity
               style={[
@@ -421,381 +422,318 @@ export default function IssueDetailPage() {
               {isSubmittingComment ? (
                 <Text style={styles.submitCommentText}>Posting...</Text>
               ) : (
-                <>
-                  <Ionicons name="send" size={16} color="white" />
-                  <Text style={styles.submitCommentText}>Post</Text>
-                </>
+                <Ionicons name="send" size={18} color="white" />
               )}
             </TouchableOpacity>
           </View>
 
-          {/* Comments List */}
           {issue.comments && issue.comments.length > 0 ? (
-            issue.comments.map((comment, index) => (
+            issue.comments.map((c, index) => (
               <View key={index} style={styles.commentCard}>
                 <View style={styles.commentHeader}>
                   <View style={styles.commentUser}>
                     <Ionicons
                       name={
-                        comment.isOfficial
+                        c.isOfficial
                           ? "shield-checkmark"
                           : "person-circle-outline"
                       }
                       size={20}
-                      color={comment.isOfficial ? "#16a34a" : "#6b7280"}
+                      color={c.isOfficial ? "#16a34a" : "#6b7280"}
                     />
                     <Text
                       style={[
                         styles.commentUsername,
-                        comment.isOfficial && styles.officialUser,
+                        c.isOfficial && styles.officialUser,
                       ]}
                     >
-                      {comment.user
-                        ? `${comment.user.firstName} ${comment.user.lastName}`
+                      {c.user
+                        ? `${c.user.firstName} ${c.user.lastName}`
                         : "Anonymous"}
-                      {comment.isOfficial && " (Official)"}
+                      {c.isOfficial && " (Official)"}
                     </Text>
                   </View>
                   <Text style={styles.commentDate}>
-                    {formatDate(comment.createdAt)}
+                    {formatDate(c._creationTime)}
                   </Text>
                 </View>
-                <Text style={styles.commentContent}>{comment.content}</Text>
+                <Text style={styles.commentContent}>{c.content}</Text>
               </View>
             ))
           ) : (
             <View style={styles.noComments}>
-              <Ionicons name="chatbubble-outline" size={48} color="#9ca3af" />
-              <Text style={styles.noCommentsText}>No comments yet</Text>
-              <Text style={styles.noCommentsSubtext}>
-                Be the first to comment on this issue
+              <Text style={styles.noCommentsText}>
+                Be the first to comment.
               </Text>
             </View>
           )}
         </View>
       </ScrollView>
+
+      {/* --- NEW: Full Screen Image Modal --- */}
+      <Modal
+        visible={isModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseModal}
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity
+            style={styles.modalCloseButton}
+            onPress={handleCloseModal}
+          >
+            <Ionicons name="close" size={32} color="white" />
+          </TouchableOpacity>
+          {issue.imageUrls && issue.imageUrls.length > 0 && (
+            <Image
+              source={{ uri: issue.imageUrls[selectedImageIndex] }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          )}
+          {issue.imageUrls && issue.imageUrls.length > 1 && (
+            <View style={styles.imageCounter}>
+              <Text style={styles.imageCounterText}>
+                {selectedImageIndex + 1} / {issue.imageUrls.length}
+              </Text>
+            </View>
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
-const { width } = Dimensions.get('window')
+const { width, height } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-  },
+  container: { flex: 1, backgroundColor: "#f8fafc" },
   header: {
     backgroundColor: "#16a34a",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: 10,
-    paddingBottom: 15,
+    paddingVertical: 15,
     paddingHorizontal: 20,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "white",
-  },
-  content: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    fontSize: 16,
-    color: "#6b7280",
-  },
+  headerTitle: { fontSize: 18, fontWeight: "bold", color: "white" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { fontSize: 16, color: "#6b7280" },
   issueHeader: {
     backgroundColor: "white",
     padding: 20,
-    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
   },
-  statusRow: {
+  statusContainer: {
     flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
-    gap: 8,
   },
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    gap: 6,
   },
   statusText: {
     fontSize: 12,
     fontWeight: "600",
     color: "white",
+    letterSpacing: 0.5,
   },
-  priorityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  priorityText: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: "white",
-  },
+  issueId: { fontSize: 14, color: "#6b7280", fontWeight: "600" },
   issueTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "bold",
     color: "#1f2937",
-    marginBottom: 8,
-    lineHeight: 28,
-  },
-  metaRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: 12,
+    lineHeight: 30,
   },
-  category: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#16a34a",
-  },
-  date: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    gap: 4,
-  },
-  locationText: {
-    fontSize: 14,
-    color: "#6b7280",
-    flex: 1,
-  },
-  landmarkRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  landmarkText: {
-    fontSize: 12,
-    color: "#9ca3af",
-    fontStyle: "italic",
-  },
-  section: {
-    backgroundColor: "white",
-    padding: 20,
-    marginBottom: 8,
-  },
+  metaInfo: { gap: 8 },
+  metaItem: { flexDirection: "row", alignItems: "center" },
+  metaText: { fontSize: 14, color: "#6b7280", marginLeft: 6 },
+  section: { backgroundColor: "white", padding: 20, marginBottom: 8 },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#1f2937",
-    marginBottom: 12,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: "#16a34a",
+    paddingLeft: 8,
   },
-  imagesSection: {
-    backgroundColor: "white",
-    paddingVertical: 20,
-    marginBottom: 8,
-  },
-  imagesContainer: {
-    flexDirection: "row",
+  sectionTitleInverted: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#1f2937",
+    marginBottom: 16,
     paddingHorizontal: 20,
-    gap: 12,
-  },
-  imageWrapper: {
-    position: "relative",
-  },
-  issueImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 8,
-  },
-  imageOverlay: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 12,
-    padding: 4,
   },
   description: {
     fontSize: 16,
-    color: "#374151",
+    color: "#4b5563",
     lineHeight: 24,
+    marginBottom: 16,
   },
-  reporterRow: {
+  tagsContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
   },
-  reporterAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  reporterAvatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  tag: {
     backgroundColor: "#f3f4f6",
-    justifyContent: "center",
-    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  reporterName: {
+  tagText: { fontSize: 12, fontWeight: "600", color: "#6b7280" },
+  locationCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 16,
+    backgroundColor: "#f9fafb",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  locationInfo: { marginLeft: 12, flex: 1 },
+  locationAddress: {
     fontSize: 16,
     fontWeight: "600",
     color: "#1f2937",
+    marginBottom: 4,
   },
-  engagementSection: {
-    backgroundColor: "white",
+  locationDetails: { fontSize: 14, color: "#6b7280" },
+  landmark: {
+    fontSize: 14,
+    color: "#16a34a",
+    marginTop: 4,
+    fontStyle: "italic",
+  },
+  engagementContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: 20,
-    marginBottom: 8,
+    justifyContent: "space-between",
   },
   upvoteButton: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f0fdf4",
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#16a34a",
+    borderColor: "#a7f3d0",
     gap: 6,
   },
-  upvotedButton: {
-    backgroundColor: "#16a34a",
-  },
-  upvoteText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#16a34a",
-  },
-  upvotedText: {
-    color: "white",
-  },
-  viewCount: {
+  upvotedButton: { backgroundColor: "#16a34a" },
+  upvoteText: { fontSize: 14, fontWeight: "600", color: "#15803d" },
+  upvotedText: { color: "white" },
+  viewsContainer: { flexDirection: "row", alignItems: "center", gap: 6 },
+  viewsText: { fontSize: 14, color: "#6b7280" },
+  statusUpdate: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  viewText: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  addCommentContainer: {
-    flexDirection: "row",
-    marginBottom: 20,
     gap: 12,
+    marginBottom: 16,
+    paddingLeft: 4,
   },
+  statusDot: { width: 10, height: 10, borderRadius: 5, marginTop: 5 },
+  statusUpdateContent: {
+    flex: 1,
+    borderLeftWidth: 2,
+    borderLeftColor: "#e5e7eb",
+    paddingLeft: 12,
+  },
+  statusUpdateTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#1f2937",
+    marginBottom: 2,
+  },
+  statusUpdateNote: { fontSize: 14, color: "#4b5563", marginBottom: 4 },
+  statusUpdateDate: { fontSize: 12, color: "#9ca3af" },
+  resolutionCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 16,
+    backgroundColor: "#f0fdf4",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+  },
+  resolutionContent: { marginLeft: 12, flex: 1 },
+  resolutionText: {
+    fontSize: 16,
+    color: "#14532d",
+    marginBottom: 8,
+    fontWeight: "500",
+    lineHeight: 22,
+  },
+  resolutionDate: { fontSize: 12, color: "#166534" },
+  addCommentContainer: { flexDirection: "row", gap: 8, alignItems: "center" },
   commentInput: {
     flex: 1,
     borderWidth: 1,
     borderColor: "#d1d5db",
     borderRadius: 8,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 14,
-    maxHeight: 100,
+    backgroundColor: "#f9fafb",
   },
   submitCommentButton: {
     backgroundColor: "#16a34a",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    padding: 12,
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
   },
-  disabledButton: {
-    backgroundColor: "#9ca3af",
-  },
-  commentItem: {
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f3f4f6",
+  disabledButton: { backgroundColor: "#9ca3af" },
+  submitCommentText: { color: "white", fontSize: 14, fontWeight: "600" },
+  commentCard: {
+    backgroundColor: "#f9fafb",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
   },
   commentHeader: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "flex-start",
+    gap:2,
     marginBottom: 8,
-    gap: 8,
   },
-  commenterName: {
+  commentUser: { flexDirection: "row", alignItems: "center" },
+  commentUsername: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#1f2937",
-  },
-  officialBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#3b82f6",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    gap: 2,
-  },
-  officialText: {
-    fontSize: 10,
     fontWeight: "bold",
-    color: "white",
-  },
-  commentDate: {
-    fontSize: 12,
-    color: "#9ca3af",
-    marginLeft: "auto",
-  },
-  commentContent: {
-    fontSize: 14,
     color: "#374151",
-    lineHeight: 20,
+    marginLeft: 6,
   },
-  noCommentsText: {
-    fontSize: 14,
-    color: "#9ca3af",
-    textAlign: "center",
-    padding: 20,
-    fontStyle: "italic",
+  officialUser: { color: "#16a34a" },
+  commentDate: { fontSize: 12, color: "#9ca3af",marginLeft:4 },
+  commentContent: { fontSize: 14, color: "#4b5563", lineHeight: 20 },
+  noComments: { alignItems: "center", paddingVertical: 20 },
+  noCommentsText: { fontSize: 14, color: "#9ca3af", fontStyle: "italic" },
+
+  // --- New Image Styles ---
+  imagesSection: {
+    backgroundColor: "white",
+    paddingVertical: 20,
+    marginBottom: 8,
   },
-  statusUpdateItem: {
-    marginBottom: 12,
-    paddingLeft: 16,
-    borderLeftWidth: 2,
-    borderLeftColor: "#e5e7eb",
-  },
-  statusUpdateHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
-    gap: 8,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusUpdateText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1f2937",
-  },
-  statusUpdateNote: {
-    fontSize: 13,
-    color: "#6b7280",
-    marginTop: 4,
-    marginLeft: 16,
-  },
-  statusUpdateDate: {
-    fontSize: 11,
-    color: "#9ca3af",
-    marginTop: 4,
-    marginLeft: 16,
+  imagesContainer: { paddingHorizontal: 20, gap: 12 },
+  issueImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    backgroundColor: "#e5e7eb",
   },
   modalContainer: {
     flex: 1,
@@ -808,219 +746,18 @@ const styles = StyleSheet.create({
     top: 50,
     right: 20,
     zIndex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0,0,0,0.4)",
     borderRadius: 20,
-    padding: 8,
+    padding: 4,
   },
-  fullScreenImage: {
-    width: width - 40,
-    height: "70%",
-  },
+  fullScreenImage: { width: width, height: height * 0.7 },
   imageCounter: {
     position: "absolute",
-    bottom: 50,
-    alignSelf: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    bottom: 40,
+    backgroundColor: "rgba(0,0,0,0.6)",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
   },
-  imageCounterText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  a: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 10,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
-  },
-
-  statusContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  
-  issueId: {
-    fontSize: 14,
-    color: "#6b7280",
-    fontWeight: "600",
-  },
- 
-  metaInfo: {
-    gap: 8,
-  },
-  metaItem: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  metaText: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginLeft: 6,
-  },
- 
-
-  tagsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  tag: {
-    backgroundColor: "#f3f4f6",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  tagText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#6b7280",
-  },
-  locationCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    padding: 16,
-    backgroundColor: "#f9fafb",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  locationInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  locationAddress: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1f2937",
-    marginBottom: 4,
-  },
-  locationDetails: {
-    fontSize: 14,
-    color: "#6b7280",
-  },
-  landmark: {
-    fontSize: 12,
-    color: "#16a34a",
-    marginTop: 4,
-    fontStyle: "italic",
-  },
-  engagementContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
- 
-  viewsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  viewsText: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginLeft: 4,
-  },
-  whatsappButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f0fdf4",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#bbf7d0",
-  },
-  whatsappText: {
-    fontSize: 12,
-    color: "#16a34a",
-    marginLeft: 4,
-    fontWeight: "600",
-  },
-  statusUpdate: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 16,
-  },
-  
-  statusUpdateContent: {
-    flex: 1,
-  },
-  statusUpdateTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1f2937",
-    marginBottom: 4,
-  },
-
-  resolutionCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    padding: 16,
-    backgroundColor: "#f0fdf4",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#bbf7d0",
-  },
-  resolutionContent: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  resolutionText: {
-    fontSize: 16,
-    color: "#16a34a",
-    marginBottom: 8,
-    fontWeight: "500",
-  },
-  resolutionDate: {
-    fontSize: 12,
-    color: "#16a34a",
-  },
-  
- 
- 
-  submitCommentText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "600",
-    marginLeft: 6,
-  },
-  commentCard: {
-    backgroundColor: "#f9fafb",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
- 
-  commentUser: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  commentUsername: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-    marginLeft: 6,
-  },
-  officialUser: {
-    color: "#16a34a",
-  },
-
-  noComments: {
-    alignItems: "center",
-    paddingVertical: 32,
-  },
-
-  noCommentsSubtext: {
-    fontSize: 14,
-    color: "#9ca3af",
-    marginTop: 4,
-  },
+  imageCounterText: { color: "white", fontSize: 14, fontWeight: "600" },
 });

@@ -67,8 +67,10 @@ export default function AdminLayout({
 
   // Get stats for badges
   const issues = useQuery(api.civicIssues.getIssues, { limit: 1000 });
+  const departments = useQuery(api.departments.getDepartments, {});
   const pendingCount = issues?.filter(issue => issue.status === 'pending').length || 0;
   const totalUsers = useQuery(api.users.getAllUsers, {})?.length || 0;
+  const totalDepartments = departments?.length || 0;
 
   // Show loading state while checking authentication
   if (!isLoaded || (user && convexUser === undefined)) {
@@ -114,6 +116,7 @@ export default function AdminLayout({
       href: "/admin/departments",
       icon: <Building className="h-5 w-5" />,
       label: "Departments",
+      badge: totalDepartments > 0 ? totalDepartments.toString() : undefined,
       isActive: pathname.startsWith("/admin/departments")
     },
     {
