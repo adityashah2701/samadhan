@@ -4,8 +4,10 @@ import { ConvexProviderWithClerk } from "convex/react-clerk";
 import * as SecureStore from "expo-secure-store";
 import { Slot } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
+import { View } from "react-native";
 import ErrorBoundary from "./components/ErrorBoundary";
 import NotificationProvider from "./components/NotificationProvider";
+import FloatingChatButton from "./components/FloatingChatButton";
 import { Platform } from "react-native";
 // Warm up the android browser to improve performance
 if (Platform.OS === "web") {
@@ -52,7 +54,10 @@ export default function RootLayout() {
       >
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
           <NotificationProvider>
-            <Slot />
+            <View style={{ flex: 1 }}>
+              <Slot />
+              <FloatingChatButton />
+            </View>
           </NotificationProvider>
         </ConvexProviderWithClerk>
       </ClerkProvider>
