@@ -433,6 +433,7 @@ export default function ReportIssuePage() {
                   setFormData({ ...formData, title: text })
                 }
                 placeholder="e.g., Large pothole on Main Street"
+                placeholderTextColor="#9ca3af"
               />
             </View>
 
@@ -465,6 +466,7 @@ export default function ReportIssuePage() {
                   setFormData({ ...formData, description: text })
                 }
                 placeholder="Provide details about the issue..."
+                placeholderTextColor="#9ca3af"
                 multiline
               />
             </View>
@@ -524,6 +526,7 @@ export default function ReportIssuePage() {
                   setFormData({ ...formData, address: text })
                 }
                 placeholder="Auto-filled address, please verify or edit"
+                placeholderTextColor="#9ca3af"
                 multiline
               />
               <Text style={styles.locationInfoText}>
@@ -635,10 +638,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color:"#000",
+    color: "#000",
     backgroundColor: "#f9fafb",
   },
-  textArea: { height: 100, textAlignVertical: "top",color:"#000" },
+  textArea: { height: 100, textAlignVertical: "top", color: "#000" },
   imageContainer: { flexDirection: "row", flexWrap: "wrap" },
   imageWrapper: { position: "relative", marginRight: 8, marginBottom: 8 },
   uploadedImage: { width: imageSize, height: imageSize, borderRadius: 8 },
@@ -708,7 +711,7 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: "#f9fafb",
   },
-  dropdownButtonText: { fontSize: 16, color: "#1f2937" },
+  dropdownButtonText: { fontSize: 16, color: "#000" },
   placeholderText: { color: "#9ca3af" },
   modalOverlay: {
     flex: 1,
@@ -722,13 +725,14 @@ const styles = StyleSheet.create({
     padding: 16,
     width: "80%",
     maxHeight: "60%",
+    
   },
   optionItem: {
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#f3f4f6",
   },
-  optionText: { fontSize: 16 },
+  optionText: { fontSize: 16, color: "#000" },
 
   // Success Modal Styles
   successModalOverlay: {
