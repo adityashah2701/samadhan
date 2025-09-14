@@ -5,7 +5,7 @@ import * as SecureStore from "expo-secure-store";
 import { Slot } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { NotificationProvider } from "./components/NotificationProvider";
+import NotificationProvider from "./components/NotificationProvider";
 import { Platform } from "react-native";
 // Warm up the android browser to improve performance
 if (Platform.OS === "web") {

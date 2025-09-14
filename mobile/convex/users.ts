@@ -130,3 +130,29 @@ export const getAllUsers = query({
       .collect();
   },
 });
+
+// Update user's Expo push token
+export const updateUserPushToken = mutation({
+  args: {
+    clerkId: v.string(),
+    expoPushToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(user._id, {
+      expoPushToken: args.expoPushToken,
+      updatedAt: Date.now(),
+    });
+
+    console.log(`🔔 Updated push token for user: ${user.email}`);
+    return true;
+  },
+});

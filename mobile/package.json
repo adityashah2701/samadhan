@@ -7,7 +7,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:android": "eas build --platform android --profile preview"
+    "build:android": "eas build --platform android --profile preview",
+    "postinstall": "npm run clean:modules",
+    "clean:modules": "rm -rf node_modules/.cache || true"
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.14.30",

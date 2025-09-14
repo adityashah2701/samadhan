@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { useUser } from '@clerk/clerk-expo';
-import { useQuery } from 'convex/react';
-import { api } from "@/convex/_generated/api";
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../convex/_generated/api';
 import { router } from 'expo-router';
 
 // Configure notification behavior
@@ -29,12 +29,27 @@ export function useNotifications() {
     user?.id ? { clerkId: user.id } : "skip"
   );
 
+  // Mutation to update user's push token
+  const updatePushToken = useMutation(api.users.updateUserPushToken);
+
   // Register for push notifications
   useEffect(() => {
-    registerForPushNotificationsAsync().then(token => {
+    if (!user?.id) return;
+
+    registerForPushNotificationsAsync().then(async (token) => {
       if (token) {
         setExpoPushToken(token);
-        // TODO: Save the token to your backend if needed for targeted notifications
+        
+        // Save token to Convex database
+        try {
+          await updatePushToken({
+            clerkId: user.id,
+            expoPushToken: token,
+          });
+          console.log('✅ Push token registered successfully');
+        } catch (error) {
+          console.error('❌ Failed to register push token:', error);
+        }
       }
     });
 
@@ -65,7 +80,7 @@ export function useNotifications() {
         responseListener.current.remove();
       }
     };
-  }, []);
+  }, [user?.id, updatePushToken]);
 
   // Send a local notification (for immediate feedback)
   const sendLocalNotification = async ({
@@ -77,15 +92,19 @@ export function useNotifications() {
     body: string;
     data?: Record<string, unknown>;
   }) => {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        data,
-        sound: true,
-      },
-      trigger: null, // Send immediately
-    });
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data,
+          sound: true,
+        },
+        trigger: null, // Send immediately
+      });
+    } catch (error) {
+      console.error('Error sending local notification:', error);
+    }
   };
 
   // Schedule a notification for later
@@ -100,28 +119,40 @@ export function useNotifications() {
     data?: Record<string, unknown>;
     seconds: number;
   }) => {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        data,
-        sound: true,
-      },
-      trigger: { 
-        seconds,
-        repeats: false
-      },
-    });
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data,
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds,
+        },
+      });
+    } catch (error) {
+      console.error('Error scheduling notification:', error);
+    }
   };
 
   // Clear all notifications
   const clearAllNotifications = async () => {
-    await Notifications.dismissAllNotificationsAsync();
+    try {
+      await Notifications.dismissAllNotificationsAsync();
+    } catch (error) {
+      console.error('Error clearing notifications:', error);
+    }
   };
 
   // Set badge count
   const setBadgeCount = async (count: number) => {
-    await Notifications.setBadgeCountAsync(count);
+    try {
+      await Notifications.setBadgeCountAsync(count);
+    } catch (error) {
+      console.error('Error setting badge count:', error);
+    }
   };
 
   return {
@@ -139,44 +170,50 @@ async function registerForPushNotificationsAsync() {
   let token;
 
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('samadhan-notifications', {
-      name: 'Samadhan Notifications',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#16a34a',
-      sound: 'default',
-      enableLights: true,
-      enableVibrate: true,
-      showBadge: true,
-    });
+    try {
+      await Notifications.setNotificationChannelAsync('samadhan-notifications', {
+        name: 'Samadhan Notifications',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#16a34a',
+        sound: 'default',
+        enableLights: true,
+        enableVibrate: true,
+        showBadge: true,
+      });
+    } catch (error) {
+      console.error('Error setting notification channel:', error);
+    }
   }
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-  
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-  
-  if (finalStatus !== 'granted') {
-    alert('Failed to get push token for push notification!');
-    return;
-  }
-  
   try {
-    token = await Notifications.getExpoPushTokenAsync({
-      projectId: 'e7b433c9-4b7c-4b8e-bbfc-453d36608c00', // Your EAS project ID from app.json
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    
+    if (finalStatus !== 'granted') {
+      console.log('Push notification permission not granted');
+      return null;
+    }
+    
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: 'e7b433c9-4b7c-4b8e-bbfc-453d36608c00',
     });
-    console.log('Expo push token:', token);
+    
+    token = tokenData.data;
+    console.log('🔔 Expo push token obtained:', token);
   } catch (e) {
     console.error('Error getting push token:', e);
+    return null;
   }
 
-  return token?.data;
+  return token;
 }
 
-// Utility functions for notification formatting
 export const NotificationHelpers = {
   formatIssueCreatedNotification: (issueTitle: string, issueNumber: string) => ({
     title: '✅ Issue Reported Successfully',

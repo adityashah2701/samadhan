@@ -36,13 +36,10 @@ export default function HomePage() {
     user ? { clerkId: user.id } : "skip"
   );
 
-  // Get recent issues
   const recentIssues = useQuery(api.civicIssues.getIssues, { limit: 10 });
 
-  // Get issue statistics
   const issueStats = useQuery(api.civicIssues.getIssueStats, {});
 
-  // Auto-sync user when they sign in
   const createOrUpdateUser = useMutation(api.users.createOrUpdateUser);
 
   const isDataLoading =
@@ -74,7 +71,7 @@ export default function HomePage() {
     };
 
     syncUser();
-  }, [isLoaded, user, convexUser, createOrUpdateUser]); // Updated dependency array
+  }, [isLoaded, user, convexUser, createOrUpdateUser]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -565,11 +562,9 @@ export default function HomePage() {
           )}
         </View>
 
-        {/* Add bottom padding to avoid nav overlap */}
         <View style={styles.bottomPadding} />
       </ScrollView>
 
-      {/* Enhanced Bottom Navigation */}
       <View style={styles.bottomNav}>
         <LinearGradient
           colors={["#ffffff", "#f9fafb"]}

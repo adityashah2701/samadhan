@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
-import { useNotifications } from '../hooks/useNotifications'
+import { useNotifications } from '@/hooks/useNotifications'
 
 export default function NotificationsPage() {
   const { user } = useUser()
@@ -321,7 +321,7 @@ export default function NotificationsPage() {
                   {notification.message}
                 </Text>
 
-                {notification.relatedIssueId && notification.relatedIssue && (
+                {/* {notification.relatedIssueId && notification.relatedIssue && (
                   <View style={styles.issueInfo}>
                     <Text style={styles.issueTitle}>
                       {notification.relatedIssue.title}
@@ -340,7 +340,7 @@ export default function NotificationsPage() {
                       </Text>
                     </View>
                   </View>
-                )}
+                )} */}
 
                 {notification.relatedIssueId && (
                   <View style={styles.actionButton}>

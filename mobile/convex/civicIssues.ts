@@ -75,6 +75,17 @@ export const createIssue = mutation({
       issueNumber,
     });
 
+    // Send push notification for successful issue creation
+    await ctx.runMutation(internal.notifications.sendPushNotification, {
+      userId: args.reportedBy,
+      title: "✅ Issue Reported Successfully",
+      body: `Your issue "${args.title}" has been submitted with ID: ${issueNumber}`,
+      data: {
+        issueId,
+        type: "issue_created",
+      },
+    });
+
     return issueId;
   },
 });
@@ -256,7 +267,7 @@ export const toggleUpvote = mutation({
   },
 });
 
-// Update issue status (admin/department only)
+
 export const updateIssueStatus = mutation({
   args: {
     issueId: v.id("civicIssues"),

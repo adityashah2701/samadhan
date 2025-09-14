@@ -191,6 +191,8 @@ export const notifyIssueCreated = internalMutation({
       isRead: false,
       createdAt: Date.now(),
     });
+
+    console.log(`🔔 Issue creation notification sent for: ${args.issueTitle}`);
   },
 });
 
@@ -230,9 +232,18 @@ export const notifyStatusUpdate = internalMutation({
       createdAt: Date.now(),
     });
 
-    // Also send a local notification immediately for testing in Expo Go
-    // This will be visible in the app's notification screen
-    console.log(`🔔 NOTIFICATION: ${title} - ${message}`);
+    // Send push notification
+    await ctx.runMutation(internal.notifications.sendPushNotification, {
+      userId: args.userId,
+      title: args.newStatus === "resolved" ? "🎉 Issue Resolved!" : "📢 Status Updated",
+      body: `Your issue "${args.issueTitle}" is now ${args.newStatus}${args.note ? `: ${args.note}` : ''}`,
+      data: {
+        issueId: args.issueId,
+        type: "status_update",
+      },
+    });
+
+    console.log(`🔔 Status notification sent for issue: ${args.issueTitle}`);
   },
 });
 
@@ -261,8 +272,18 @@ export const notifyNewComment = internalMutation({
       createdAt: Date.now(),
     });
 
-    // Log for testing in Expo Go
-    console.log(`🔔 NOTIFICATION: ${title} - ${message}`);
+    // Send push notification
+    await ctx.runMutation(internal.notifications.sendPushNotification, {
+      userId: args.userId,
+      title: args.isOfficial ? "🏦 Official Update" : "💬 New Comment",
+      body: `${args.commenterName} ${args.isOfficial ? 'posted an official update' : 'commented'} on "${args.issueTitle}"`,
+      data: {
+        issueId: args.issueId,
+        type: "new_comment",
+      },
+    });
+
+    console.log(`🔔 Comment notification sent for issue: ${args.issueTitle}`);
   },
 });
 
@@ -326,5 +347,68 @@ export const triggerTestNotification = mutation({
 
     console.log(`🧪 TEST NOTIFICATION created for user ${args.userId}`);
     return "Test notification created successfully";
+  },
+});
+
+// Send push notification to specific user (INTERNAL)
+export const sendPushNotification = internalMutation({
+  args: {
+    userId: v.id("users"),
+    title: v.string(),
+    body: v.string(),
+    data: v.optional(v.object({
+      issueId: v.optional(v.string()),
+      type: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const user = await ctx.db.get(args.userId);
+      if (!user) {
+        console.error('User not found for push notification');
+        return false;
+      }
+
+      if (!user.expoPushToken) {
+        console.log(`⚠️ No push token for user ${user.email}, skipping push notification`);
+        return false;
+      }
+
+      const message = {
+        to: user.expoPushToken,
+        title: args.title,
+        body: args.body,
+        data: args.data || {},
+        sound: 'default',
+        priority: 'high',
+      };
+
+      console.log(`🚀 Sending push notification to ${user.email}`);
+      console.log(`📱 Title: ${args.title}`);
+      console.log(`💬 Body: ${args.body}`);
+
+      const response = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Accept-Encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(message),
+      });
+
+      const result = await response.json();
+      
+      if (response.ok && result.data && result.data.status === 'ok') {
+        console.log(`✅ Push notification sent successfully to ${user.email}`);
+        return true;
+      } else {
+        console.error(`❌ Push notification failed:`, result);
+        return false;
+      }
+    } catch (error) {
+      console.error('💥 Error sending push notification:', error);
+      return false;
+    }
   },
 });

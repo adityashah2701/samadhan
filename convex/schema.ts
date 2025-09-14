@@ -14,6 +14,7 @@ export default defineSchema({
     address: v.optional(v.string()),
     city: v.optional(v.string()),
     district: v.optional(v.string()),
+    expoPushToken: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
