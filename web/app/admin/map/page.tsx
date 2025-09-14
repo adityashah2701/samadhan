@@ -247,7 +247,7 @@ export default function AdminMapView() {
                 </div>
               }
             >
-              <DynamicMap issues={filteredIssues} />
+              <DynamicMap issues={filteredIssues as any} />
             </React.Suspense>
           </div>
         </CardContent>
