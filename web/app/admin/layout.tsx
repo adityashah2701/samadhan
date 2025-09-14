@@ -18,6 +18,7 @@ import {
   Plus,
   Bell,
   FileText,
+  MapPin,
 } from "lucide-react";
 import React from "react";
 
@@ -70,7 +71,8 @@ export default function AdminLayout({
   const totalUsers = useQuery(api.users.getAllUsers, {})?.length || 0;
   const totalDepartments = departments?.length || 0;
 
-  if (!isLoaded || (user && convexUser === undefined)) {
+  // Show loading spinner while auth is loading
+  if (!isLoaded) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -78,12 +80,36 @@ export default function AdminLayout({
     );
   }
 
+  // Redirect if not authenticated
   if (!user) {
     redirect("/");
   }
 
-  if (convexUser && convexUser.role !== "admin") {
-    redirect("/");
+  // Show loading while user data is being fetched
+  if (convexUser === undefined) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Show access denied immediately if user is not admin (no redirect to prevent loop)
+  if (convexUser && convexUser.role !== "admin" && convexUser.role !== "department") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="text-red-500 text-xl font-semibold">Access Denied</div>
+          <p className="text-muted-foreground max-w-md">
+            You don't have sufficient privileges to access the admin panel.
+            Please contact your administrator if you believe this is an error.
+          </p>
+          <Link href="/">
+            <Button>Return to Home</Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   const sidebarItems = [
@@ -92,6 +118,12 @@ export default function AdminLayout({
       icon: <LayoutDashboard className="h-5 w-5" />,
       label: "Dashboard",
       isActive: pathname === "/admin"
+    },
+    {
+      href: "/admin/map",
+      icon: <MapPin className="h-5 w-5" />,
+      label: "Map View",
+      isActive: pathname.startsWith("/admin/map")
     },
     {
       href: "/admin/issues",
