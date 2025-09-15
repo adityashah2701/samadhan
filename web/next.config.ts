@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+
 const nextConfig = {
   images: {
     domains: ['neat-peccary-29.convex.cloud'],
@@ -6,6 +7,7 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true, 
   },
+   outputFileTracingRoot: process.cwd(),
   
 };
 
