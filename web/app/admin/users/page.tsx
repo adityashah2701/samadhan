@@ -159,7 +159,7 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Users</h1>
@@ -196,8 +196,9 @@ export default function UsersPage() {
         {/* Column Visibility Toggle */}
       <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button variant="outline" className="ml-auto">
-        Columns <UsersIcon className="ml-2 h-4 w-4" />
+      <Button variant="outline" size="sm">
+        <UsersIcon className="h-4 w-4 mr-2" />
+        <span className="hidden sm:inline">Columns</span>
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end">
@@ -231,7 +232,7 @@ export default function UsersPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto px-3">
+          <div className="table-responsive custom-scrollbar px-3">
             <Table>
               <TableHeader>
                 <TableRow className="border-border/50">

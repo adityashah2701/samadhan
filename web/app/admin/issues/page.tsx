@@ -70,8 +70,8 @@ export default function IssuesPage() {
     issueDetails: true,
     status: true,
     priority: true,
-    category: true,
-    location: true,
+    category: false, // Hidden by default on smaller screens
+    location: false, // Hidden by default on smaller screens
     reporter: false, // Hidden by default on smaller screens
     date: true,
     department: false, // Hidden by default on smaller screens
@@ -296,9 +296,9 @@ export default function IssuesPage() {
           <CardDescription>Filter and search through {issues.length} total issues</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {/* Search */}
-            <div className="lg:col-span-2">
+            <div className="sm:col-span-2 lg:col-span-1 xl:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
@@ -356,12 +356,12 @@ export default function IssuesPage() {
           </div>
 
           {/* Results Summary and Column Controls */}
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-4 pt-4 border-t border-border">
             <div className="text-sm text-muted-foreground">
               Showing {paginatedIssues.length} of {filteredAndSortedIssues.length} issues
               {filteredAndSortedIssues.length !== issues.length && <span> (filtered from {issues.length} total)</span>}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="ml-auto bg-transparent">
@@ -452,7 +452,7 @@ export default function IssuesPage() {
       <Card className="">
         <CardContent className="p-0 ">
           <div className="rounded-md">
-            <div className="overflow-x-auto px-3">
+            <div className="table-responsive custom-scrollbar">
               <Table>
                 <TableHeader>
                   <TableRow className="border-border/50">
@@ -719,7 +719,7 @@ export default function IssuesPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-border">
               <div className="text-sm text-muted-foreground">
                 Page {currentPage} of {totalPages}
               </div>
@@ -729,17 +729,19 @@ export default function IssuesPage() {
                   size="sm"
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
+                  className="min-w-0"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  <span className="hidden sm:inline">Previous</span>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
+                  className="min-w-0"
                 >
-                  Next
+                  <span className="hidden sm:inline">Next</span>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
