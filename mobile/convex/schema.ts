@@ -120,9 +120,60 @@ export default defineSchema({
       v.literal("system")
     ),
     relatedIssueId: v.optional(v.id("civicIssues")),
+    adminNotificationId: v.optional(v.id("adminNotifications")),
     isRead: v.boolean(),
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
     .index("by_read", ["isRead"]),
+
+  adminNotifications: defineTable({
+    title: v.string(),
+    body: v.string(),
+    type: v.union(
+      v.literal("issue_created"),
+      v.literal("issue_update"),
+      v.literal("issue_resolved"),
+      v.literal("new_comment"),
+      v.literal("system"),
+      v.literal("announcement"),
+      v.literal("maintenance"),
+      v.literal("emergency"),
+      v.literal("department_update"),
+      v.literal("user_registration")
+    ),
+    channels: v.array(
+      v.union(
+        v.literal("app"),
+        v.literal("email"),
+        v.literal("sms"),
+        v.literal("web")
+      )
+    ),
+    targetAudience: v.union(
+      v.literal("all_users"),
+      v.literal("citizens"),
+      v.literal("departments"),
+      v.literal("admins"),
+      v.literal("custom")
+    ),
+    customUserIds: v.optional(v.array(v.id("users"))),
+    urgent: v.boolean(),
+    senderId: v.id("users"),
+    scheduledAt: v.optional(v.number()),
+    sentAt: v.optional(v.number()),
+    recipientCount: v.number(),
+    deliveredCount: v.number(),
+    readCount: v.number(),
+    status: v.union(
+      v.literal("scheduled"),
+      v.literal("sent"),
+      v.literal("delivered"),
+      v.literal("failed")
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_sender", ["senderId"])
+    .index("by_status", ["status"])
+    .index("by_scheduled", ["scheduledAt"]),
 });

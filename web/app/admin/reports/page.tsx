@@ -37,17 +37,9 @@ import {
   Users,
   AlertCircle,
   Building,
-  TrendingUp,
-  Filter,
-  Search,
-  FileSpreadsheet,
-  FileImage,
-  Printer,
-  Clock,
-  CheckCircle,
-  XCircle,
-  MapPin,
-  User,
+  TrendingUp, Search,
+  FileSpreadsheet, Clock,
+  CheckCircle
 } from "lucide-react";
 import { toast } from "sonner";
 

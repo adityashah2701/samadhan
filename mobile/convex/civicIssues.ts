@@ -89,8 +89,7 @@ export const createIssue = mutation({
     return issueId;
   },
 });
-// Get all issues with filters
-// Updated getIssues query - generate imageUrls dynamically
+
 export const getIssues = query({
   args: {
     status: v.optional(v.string()),

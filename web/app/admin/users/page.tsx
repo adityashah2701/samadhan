@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useMemo, useState } from "react";
+import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import {
@@ -26,20 +26,17 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
- 
+
 } from "@/components/ui/select";
 import {
-  User,
   Mail,
   Phone,
   MapPin,
   List,
-  CheckCircle,
-  XCircle,
-  Clock,
+  CheckCircle, Clock,
   Search,
   Users as UsersIcon,
-  Filter,
+  Filter
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";

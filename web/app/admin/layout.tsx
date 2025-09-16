@@ -1,5 +1,5 @@
 "use client";
-import { UserButton, useUser } from "@clerk/nextjs";
+import { SignOutButton, UserButton, useUser } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { redirect } from "next/navigation";
@@ -36,14 +36,23 @@ interface SidebarItemProps {
   isCollapsed?: boolean;
 }
 
-function SidebarItem({ href, icon, label, badge, isActive, isCollapsed }: SidebarItemProps) {
+function SidebarItem({
+  href,
+  icon,
+  label,
+  badge,
+  isActive,
+  isCollapsed,
+}: SidebarItemProps) {
   return (
     <Link href={href}>
       <Button
         variant={isActive ? "secondary" : "ghost"}
         className={cn(
           "w-full justify-start gap-3 h-12 transition-all duration-200",
-          isActive ? "bg-primary/10 text-primary hover:bg-primary/15" : "hover:bg-accent",
+          isActive
+            ? "bg-primary/10 text-primary hover:bg-primary/15"
+            : "hover:bg-accent",
           isCollapsed && "px-3"
         )}
         title={isCollapsed ? label : undefined}
@@ -81,7 +90,8 @@ export default function AdminLayout({
 
   const issues = useQuery(api.civicIssues.getIssues, { limit: 1000 });
   const departments = useQuery(api.departments.getDepartments, {});
-  const pendingCount = issues?.filter(issue => issue.status === 'pending').length || 0;
+  const pendingCount =
+    issues?.filter((issue) => issue.status === "pending").length || 0;
   const totalUsers = useQuery(api.users.getAllUsers, {})?.length || 0;
   const totalDepartments = departments?.length || 0;
 
@@ -114,18 +124,29 @@ export default function AdminLayout({
   }
 
   // Show access denied immediately if user is not admin (no redirect to prevent loop)
-  if (convexUser && convexUser.role !== "admin" && convexUser.role !== "department") {
+  if (
+    convexUser &&
+    convexUser.role !== "admin" &&
+    convexUser.role !== "department"
+  ) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="text-red-500 text-xl font-semibold">Access Denied</div>
+          <div className="text-red-500 text-xl font-semibold">
+            Access Denied
+          </div>
           <p className="text-muted-foreground max-w-md">
             You don't have sufficient privileges to access the admin panel.
             Please contact your administrator if you believe this is an error.
           </p>
-          <Link href="/">
-            <Button>Return to Home</Button>
-          </Link>
+          <div className="space-x-2">
+            <Link href="/">
+              <Button>Return to Home</Button>
+            </Link>
+            <Button>
+              <SignOutButton />{" "}
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -136,71 +157,76 @@ export default function AdminLayout({
       href: "/admin",
       icon: <LayoutDashboard className="h-5 w-5" />,
       label: "Dashboard",
-      isActive: pathname === "/admin"
+      isActive: pathname === "/admin",
     },
     {
       href: "/admin/map",
       icon: <MapPin className="h-5 w-5" />,
       label: "Map View",
-      isActive: pathname.startsWith("/admin/map")
+      isActive: pathname.startsWith("/admin/map"),
     },
     {
       href: "/admin/issues",
       icon: <AlertCircle className="h-5 w-5" />,
       label: "Issues",
       badge: pendingCount > 0 ? pendingCount.toString() : undefined,
-      isActive: pathname.startsWith("/admin/issues")
+      isActive: pathname.startsWith("/admin/issues"),
     },
     {
       href: "/admin/users",
       icon: <Users className="h-5 w-5" />,
       label: "Users",
       badge: totalUsers > 0 ? totalUsers.toString() : undefined,
-      isActive: pathname.startsWith("/admin/users")
+      isActive: pathname.startsWith("/admin/users"),
     },
     {
       href: "/admin/departments",
       icon: <Building className="h-5 w-5" />,
       label: "Departments",
       badge: totalDepartments > 0 ? totalDepartments.toString() : undefined,
-      isActive: pathname.startsWith("/admin/departments")
+      isActive: pathname.startsWith("/admin/departments"),
     },
     {
       href: "/admin/analytics",
       icon: <BarChart3 className="h-5 w-5" />,
       label: "Analytics",
-      isActive: pathname.startsWith("/admin/analytics")
+      isActive: pathname.startsWith("/admin/analytics"),
     },
     {
       href: "/admin/reports",
       icon: <FileText className="h-5 w-5" />,
       label: "Reports",
-      isActive: pathname.startsWith("/admin/reports")
-    }
+      isActive: pathname.startsWith("/admin/reports"),
+    },
   ];
 
   const quickActions = [
     {
       href: "/admin/issues/new",
       icon: <Plus className="h-4 w-4" />,
-      label: "New Issue"
+      label: "New Issue",
     },
     {
       href: "/admin/departments/new",
       icon: <Building className="h-4 w-4" />,
-      label: "Add Department"
+      label: "Add Department",
     },
     {
       href: "/admin/notifications",
       icon: <Bell className="h-4 w-4" />,
-      label: "Send Notification"
-    }
+      label: "Send Notification",
+    },
   ];
 
   const sidebarContent = (isCollapsed?: boolean) => (
     <div className="flex flex-col h-full">
       {/* Sidebar Header */}
-      <div className={cn("flex items-center gap-2 p-4 border-b border-border", isCollapsed && "justify-center")}>
+      <div
+        className={cn(
+          "flex items-center gap-2 p-4 border-b border-border",
+          isCollapsed && "justify-center"
+        )}
+      >
         <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-primary/10">
           <img src="/logo.png" alt="" className="h-8 w-8 rounded-md" />
         </div>
@@ -229,24 +255,28 @@ export default function AdminLayout({
           <div className="space-y-1">
             {quickActions.map((action) => (
               <Link key={action.href} href={action.href}>
-                <Button 
-                  variant="ghost" 
-                  size={isCollapsed ? "icon" : "sm"} 
+                <Button
+                  variant="ghost"
+                  size={isCollapsed ? "icon" : "sm"}
                   className={cn(
                     "transition-all duration-200",
-                    isCollapsed ? "w-full h-10" : "w-full justify-start gap-2 h-9"
+                    isCollapsed
+                      ? "w-full h-10"
+                      : "w-full justify-start gap-2 h-9"
                   )}
                   title={isCollapsed ? action.label : undefined}
                 >
                   {action.icon}
-                  {!isCollapsed && <span className="text-sm">{action.label}</span>}
+                  {!isCollapsed && (
+                    <span className="text-sm">{action.label}</span>
+                  )}
                 </Button>
               </Link>
             ))}
           </div>
         </div>
       </div>
-      
+
       {/* Settings */}
       <div className="p-4 border-t border-border">
         <Link href="/admin/settings">
@@ -254,7 +284,9 @@ export default function AdminLayout({
             variant={pathname === "/admin/settings" ? "secondary" : "ghost"}
             className={cn(
               "transition-all duration-200",
-              isCollapsed ? "w-full h-10 px-3" : "w-full justify-start gap-3 h-12"
+              isCollapsed
+                ? "w-full h-10 px-3"
+                : "w-full justify-start gap-3 h-12"
             )}
             title={isCollapsed ? "Settings" : undefined}
           >
@@ -292,7 +324,11 @@ export default function AdminLayout({
               className="hidden md:flex"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             >
-              {sidebarCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+              {sidebarCollapsed ? (
+                <ChevronRight className="h-5 w-5" />
+              ) : (
+                <ChevronLeft className="h-5 w-5" />
+              )}
               <span className="sr-only">Toggle sidebar</span>
             </Button>
 
@@ -313,14 +349,18 @@ export default function AdminLayout({
 
           <div className="flex items-center gap-4">
             <div className="hidden md:block text-right">
-              <p className="text-sm font-medium">{user?.firstName} {user?.lastName}</p>
-              <p className="text-xs text-muted-foreground">System Administrator</p>
+              <p className="text-sm font-medium">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                System Administrator
+              </p>
             </div>
             <UserButton
               appearance={{
                 elements: {
-                  avatarBox: "h-8 w-8"
-                }
+                  avatarBox: "h-8 w-8",
+                },
               }}
               afterSignOutUrl="/"
             />
@@ -330,7 +370,7 @@ export default function AdminLayout({
 
       <div className="flex h-[calc(100vh-4rem)]">
         {/* Desktop Sidebar */}
-        <div 
+        <div
           className={cn(
             "hidden md:flex flex-col border-r border-border bg-card/50 transition-all duration-300",
             sidebarCollapsed ? "w-16" : "w-72"

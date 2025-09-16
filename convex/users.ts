@@ -124,10 +124,61 @@ export const getUserWithStats = query({
 export const getAllUsers = query({
   args: {},
   handler: async (ctx) => {
+    return await ctx.db.query("users").collect();
+  },
+});
+
+// Get users by role
+export const getUsersByRole = query({
+  args: { role: v.union(v.literal("citizen"), v.literal("admin"), v.literal("department")) },
+  handler: async (ctx, args) => {
     return await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("role"), "citizen"))
+      .withIndex("by_role", (q) => q.eq("role", args.role))
       .collect();
+  },
+});
+
+// Get user statistics for admin dashboard
+export const getUserStatistics = query({
+  args: {},
+  handler: async (ctx) => {
+    const allUsers = await ctx.db.query("users").collect();
+    
+    const stats = {
+      total: allUsers.length,
+      citizens: allUsers.filter(u => u.role === "citizen").length,
+      departments: allUsers.filter(u => u.role === "department").length,
+      admins: allUsers.filter(u => u.role === "admin").length,
+      withPushTokens: allUsers.filter(u => u.expoPushToken).length,
+      recentRegistrations: allUsers.filter(u => u.createdAt > Date.now() - 7 * 24 * 60 * 60 * 1000).length
+    };
+    
+    return stats;
+  },
+});
+
+// Update user role (admin only)
+export const updateUserRole = mutation({
+  args: {
+    userId: v.id("users"),
+    newRole: v.union(v.literal("citizen"), v.literal("admin"), v.literal("department")),
+    updatedBy: v.id("users")
+  },
+  handler: async (ctx, args) => {
+    // Verify updater is admin
+    const updater = await ctx.db.get(args.updatedBy);
+    if (!updater || updater.role !== "admin") {
+      throw new Error("Only administrators can update user roles");
+    }
+
+    await ctx.db.patch(args.userId, {
+      role: args.newRole,
+      updatedAt: Date.now(),
+    });
+
+    console.log(`👤 User role updated to ${args.newRole}`);
+    return true;
   },
 });
 

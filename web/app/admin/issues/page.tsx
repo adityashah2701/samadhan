@@ -448,7 +448,7 @@ export default function IssuesPage() {
         </CardContent>
       </Card>
 
-      {/* Issues DataTable */}
+    
       <Card className="">
         <CardContent className="p-0 ">
           <div className="rounded-md">

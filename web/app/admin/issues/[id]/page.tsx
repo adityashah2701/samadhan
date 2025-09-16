@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 
@@ -23,22 +23,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  MapPin,
-  Calendar,
-  User,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Eye,
-  XCircle,
-  MessageCircle,
-  Image as ImageIcon,
-  ArrowUp,
-  Building,
+  MapPin, User, MessageCircle, ArrowUp,
+  Building
 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
-import Link from "next/link";
 import { format, formatDistanceToNow } from 'date-fns';
 import { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/convex/_generated/api";
