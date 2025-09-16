@@ -43,7 +43,6 @@ export default function AdminMapView() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [isMapLoaded, setIsMapLoaded] = useState(false);
 
   // Get current user
   const currentUser = useQuery(
@@ -126,8 +125,8 @@ export default function AdminMapView() {
 
   if (!allIssues) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="h-full w-full flex items-center justify-center py-8">
+        <Loader size={20} className="animate-spin text-green-500" /> 
       </div>
     );
   }

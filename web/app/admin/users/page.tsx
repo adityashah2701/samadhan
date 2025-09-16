@@ -40,6 +40,7 @@ import {
   Search,
   Users as UsersIcon,
   Filter,
+  Loader,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -139,8 +140,8 @@ export default function UsersPage() {
   // Loading and permission checks
   if (!allUsers || !allIssues || !currentAdminUser) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+     <div className="h-full w-full flex items-center justify-center py-8">
+        <Loader size={20} className="animate-spin text-green-500" /> 
       </div>
     );
   }

@@ -320,45 +320,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Common administrative tasks</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Link href="/admin/issues/new">
-              <Button variant="outline" className="w-full justify-start gap-2 h-12">
-                <AlertCircle className="h-4 w-4" />
-                <div className="text-left">
-                  <p className="font-medium">Create Issue</p>
-                  <p className="text-xs text-muted-foreground">Report new civic issue</p>
-                </div>
-              </Button>
-            </Link>
-            
-            <Link href="/admin/departments/new">
-              <Button variant="outline" className="w-full justify-start gap-2 h-12">
-                <Building className="h-4 w-4" />
-                <div className="text-left">
-                  <p className="font-medium">Add Department</p>
-                  <p className="text-xs text-muted-foreground">Create new department</p>
-                </div>
-              </Button>
-            </Link>
-            
-            <Link href="/admin/reports">
-              <Button variant="outline" className="w-full justify-start gap-2 h-12">
-                <TrendingUp className="h-4 w-4" />
-                <div className="text-left">
-                  <p className="font-medium">Generate Report</p>
-                  <p className="text-xs text-muted-foreground">Export analytics data</p>
-                </div>
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 }

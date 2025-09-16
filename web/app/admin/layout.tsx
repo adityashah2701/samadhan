@@ -180,21 +180,13 @@ export default function AdminLayout({
   ];
 
   const quickActions = [
-    {
-      href: "/admin/issues/new",
-      icon: <Plus className="h-4 w-4" />,
-      label: "New Issue"
-    },
+ 
     {
       href: "/admin/departments/new",
       icon: <Building className="h-4 w-4" />,
       label: "Add Department"
     },
-    {
-      href: "/admin/notifications",
-      icon: <Bell className="h-4 w-4" />,
-      label: "Send Notification"
-    }
+   
   ];
 
   const sidebarContent = (isCollapsed?: boolean) => (
