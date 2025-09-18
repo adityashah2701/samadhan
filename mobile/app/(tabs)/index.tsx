@@ -192,7 +192,7 @@ export default function HomePage() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.headerButton}
-                  onPress={() => router.push("/(profile)/profile")}
+                  onPress={() => router.push("/(profile)")}
                   activeOpacity={0.7}
                 >
                   <View style={styles.headerButtonBg}>

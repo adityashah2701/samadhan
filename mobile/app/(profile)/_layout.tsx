@@ -6,10 +6,7 @@ export default function ProfileLayout() {
       <Stack.Screen 
         name="index" 
         options={{ 
-          title: 'Profile',
-          headerStyle: { backgroundColor: '#16a34a' },
-          headerTintColor: '#fff',
-          headerTitleStyle: { fontWeight: 'bold' }
+          headerShown:false
         }} 
       />
     </Stack>

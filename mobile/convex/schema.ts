@@ -9,6 +9,7 @@ export default defineSchema({
     lastName: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     provider: v.optional(v.string()),
+    password:v.optional(v.string()),
     role: v.union(v.literal("citizen"), v.literal("admin"), v.literal("department")),
     phone: v.optional(v.string()),
     address: v.optional(v.string()),

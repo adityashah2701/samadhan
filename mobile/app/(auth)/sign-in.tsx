@@ -86,11 +86,11 @@ export default function SignInPage() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#6366f1" />
+            <Ionicons name="arrow-back" size={24} color="#16a34a" />
           </TouchableOpacity>
           
           <View style={styles.logoContainer}>
-            <Ionicons name="log-in" size={50} color="#6366f1" />
+            <Ionicons name="log-in" size={50} color="#16a34a" />
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>Sign in to your account</Text>
           </View>
@@ -291,12 +291,12 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   signInButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#16a34a',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
-    shadowColor: '#6366f1',
+    shadowColor: '#16a34a',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   signUpLink: {
-    color: '#6366f1',
+    color: '#16a34a',
     fontSize: 16,
     fontWeight: '600',
   },

@@ -15,6 +15,7 @@ import { Link, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 
 import * as WebBrowser from 'expo-web-browser'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 // Complete the OAuth flow
 WebBrowser.maybeCompleteAuthSession()
@@ -164,15 +165,9 @@ export default function SignUpPage() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <TouchableOpacity 
-              style={styles.backButton} 
-              onPress={() => setPendingVerification(false)}
-            >
-              <Ionicons name="arrow-back" size={24} color="#6366f1" />
-            </TouchableOpacity>
-            
+          
             <View style={styles.logoContainer}>
-              <Ionicons name="mail-unread" size={50} color="#6366f1" />
+              <Ionicons name="mail-unread" size={50} color="#16a34a" />
               <Text style={styles.title}>Check Your Email</Text>
               <Text style={styles.subtitle}>
                 We've sent a verification code to{'\n'}
@@ -224,18 +219,14 @@ export default function SignUpPage() {
   }
 
   return (
-    <KeyboardAvoidingView 
+    <SafeAreaView 
       style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+     
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#6366f1" />
-          </TouchableOpacity>
-          
+        
           <View style={styles.logoContainer}>
-            <Ionicons name="person-add" size={50} color="#6366f1" />
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Join us and start building</Text>
           </View>
@@ -349,7 +340,7 @@ export default function SignUpPage() {
           </View>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   )
 }
 
@@ -395,7 +386,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emailHighlight: {
-    color: '#6366f1',
+    color: '#16a34a',
     fontWeight: '600',
   },
   form: {
@@ -467,12 +458,12 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   signUpButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#16a34a',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
-    shadowColor: '#6366f1',
+    shadowColor: '#16a34a',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -526,7 +517,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   signInLink: {
-    color: '#6366f1',
+    color: '#16a34a',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -541,7 +532,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   resendLink: {
-    color: '#6366f1',
+    color: '#16a34a',
     fontSize: 16,
     fontWeight: '600',
   },
