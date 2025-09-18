@@ -48,7 +48,7 @@ export default function SignInPage() {
 
       if (signInAttempt.status === 'complete') {
         await setActive({ session: signInAttempt.createdSessionId })
-        router.replace('/(home)')
+        router.replace('/(tabs)')
       } else {
         console.error('Sign in incomplete:', JSON.stringify(signInAttempt, null, 2))
         Alert.alert('Error', 'Sign in incomplete. Please try again.')
@@ -68,7 +68,7 @@ export default function SignInPage() {
 
       if (createdSessionId) {
         await setActive!({ session: createdSessionId })
-        router.replace('/(home)')
+        router.replace('/(tabs)')
       }
     } catch (err: any) {
       console.error('OAuth error:', err)

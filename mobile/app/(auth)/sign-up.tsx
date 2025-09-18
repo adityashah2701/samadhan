@@ -116,7 +116,7 @@ export default function SignUpPage() {
 
       if (signUpAttempt.status === 'complete') {
         await setActive({ session: signUpAttempt.createdSessionId })
-        router.replace('/(home)')
+        router.replace('/(tabs)')
       } else {
         console.error('Verification incomplete:', JSON.stringify(signUpAttempt, null, 2))
         Alert.alert('Error', 'Verification incomplete. Please try again.')
@@ -136,7 +136,7 @@ export default function SignUpPage() {
 
       if (createdSessionId) {
         await setActive!({ session: createdSessionId })
-        router.replace('/(home)')
+        router.replace('/(tabs)')
       }
     } catch (err: any) {
       console.error('OAuth error:', err)
