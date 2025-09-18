@@ -7,7 +7,7 @@
     "icon": "./assets/logo.png",
     "scheme": "samadhan",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "developmentClient": {
       "silentLaunch": true
     },
@@ -106,7 +106,9 @@
       "router": {},
       "eas": {
         "projectId": "e7b433c9-4b7c-4b8e-bbfc-453d36608c00"
-      }
+      },
+      "flaskServerUrl": "https://samadhan-ml-task-server.onrender.com",
+      "developmentServerUrl": "https://samadhan-ml-task-server.onrender.com"
     }
   }
 }

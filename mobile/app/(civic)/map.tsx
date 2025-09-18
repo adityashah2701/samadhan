@@ -286,44 +286,7 @@ export default function MapViewPage() {
           </View>
         )}
       </View>
-
-      {/* Legend */}
-      <View style={styles.legend}>
-        <Text style={styles.legendTitle}>Issue Status</Text>
-        <View style={styles.legendItems}>
-          {[
-            { status: 'pending', label: 'Pending' },
-            { status: 'acknowledged', label: 'Acknowledged' },
-            { status: 'in_progress', label: 'In Progress' },
-            { status: 'resolved', label: 'Resolved' }
-          ].map((item) => (
-            <View key={item.status} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: getStatusColor(item.status) }]} />
-              <Text style={styles.legendLabel}>{item.label}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* Stats Footer */}
-      <View style={styles.statsFooter}>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{issuesWithCoordinates.length}</Text>
-          <Text style={styles.statLabel}>Issues Shown</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>
-            {issuesWithCoordinates.filter(i => i.status === 'resolved').length}
-          </Text>
-          <Text style={styles.statLabel}>Resolved</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>
-            {issuesWithCoordinates.filter(i => i.status === 'pending').length}
-          </Text>
-          <Text style={styles.statLabel}>Pending</Text>
-        </View>
-      </View>
+  
     </SafeAreaView>
   )
 }

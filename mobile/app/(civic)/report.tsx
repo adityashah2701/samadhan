@@ -25,6 +25,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useNotificationContext } from "../components/NotificationProvider";
+import {
+  aiAnalysisService,
+  AIUtils,
+  type CompleteAnalysisResult,
+} from "../services/aiAnalysisService";
 
 const CATEGORIES = [
   "Infrastructure",
@@ -39,6 +44,7 @@ const CATEGORIES = [
   "Drainage",
   "Other",
 ];
+
 const jharkhandCities = [
   { name: "Ranchi", lat: 23.3441, lng: 85.3096 },
   { name: "Jamshedpur", lat: 22.8046, lng: 86.2029 },
@@ -63,15 +69,23 @@ interface UploadedImage {
   uri: string;
   storageId?: Id<"_storage">;
   uploading: boolean;
+  aiAnalysis?: {
+    isIssue: boolean;
+    confidence: number;
+    category?: string;
+    categoryConfidence?: number;
+    suggestions?: string;
+  };
 }
 
-// --- Reusable Dropdown Select Component ---
+// Reusable Dropdown Select Component
 const DropdownSelect = ({
   label,
   options,
   selectedValue,
   onValueChange,
   placeholder,
+  aiSuggestion,
 }: any) => {
   const [modalVisible, setModalVisible] = useState(false);
   const selectedLabel =
@@ -81,9 +95,20 @@ const DropdownSelect = ({
   return (
     <>
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>{label}</Text>
+        <View style={styles.labelContainer}>
+          <Text style={styles.label}>{label}</Text>
+          {aiSuggestion && (
+            <View style={styles.aiSuggestionBadge}>
+              <Ionicons name="sparkles" size={12} color="#8b5cf6" />
+              <Text style={styles.aiSuggestionText}>AI Suggested</Text>
+            </View>
+          )}
+        </View>
         <TouchableOpacity
-          style={styles.dropdownButton}
+          style={[
+            styles.dropdownButton,
+            aiSuggestion && styles.dropdownButtonAISuggested,
+          ]}
           onPress={() => setModalVisible(true)}
         >
           <Text
@@ -131,7 +156,8 @@ const DropdownSelect = ({
   );
 };
 
-export default function ReportIssuePage() {
+
+export default function EnhancedReportIssuePage() {
   const { user } = useUser();
   const router = useRouter();
   const convexUser = useQuery(
@@ -160,8 +186,11 @@ export default function ReportIssuePage() {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
+  const [aiAnalysisInProgress, setAiAnalysisInProgress] = useState(false);
+  const [serverConnected, setServerConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
+    checkAIServerConnection();
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
@@ -174,6 +203,20 @@ export default function ReportIssuePage() {
       }
     })();
   }, []);
+
+  const checkAIServerConnection = async () => {
+    try {
+      const connectionTest = await aiAnalysisService.testConnection();
+      setServerConnected(connectionTest.connected);
+
+      if (!connectionTest.connected) {
+        console.log("⚠️ AI server not connected:", connectionTest.error);
+      }
+    } catch (error) {
+      console.log("⚠️ AI server check failed:", error);
+      setServerConnected(false);
+    }
+  };
 
   const getCurrentLocation = async () => {
     try {
@@ -242,6 +285,50 @@ export default function ReportIssuePage() {
     }
   };
 
+  const analyzeImageWithAI = async (imageUri: string) => {
+    if (!serverConnected) {
+      console.log("⚠️ Skipping AI analysis - server not connected");
+      return null;
+    }
+
+    try {
+      const result = await aiAnalysisService.analyzeComplete(imageUri);
+
+      if (!result.success || !result.predictions) {
+        return null;
+      }
+
+      const issueDetection = result.predictions.issue_detection;
+      const categoryClassification = result.predictions.category_classification;
+
+      if (!issueDetection) {
+        return null;
+      }
+
+      return {
+        isIssue: issueDetection.is_issue,
+        confidence: issueDetection.confidence,
+        category: categoryClassification
+          ? aiAnalysisService.mapAICategoryToFormCategory(
+              categoryClassification.predicted_class || ""
+            )
+          : undefined,
+        categoryConfidence: categoryClassification?.confidence,
+        suggestions: (() => {
+          try {
+            return aiAnalysisService.generateSuggestionsFromComplete(result);
+          } catch (suggestionError) {
+            console.error("Error generating AI suggestions:", suggestionError);
+            return "Please provide detailed information about the issue you're reporting.";
+          }
+        })(),
+      };
+    } catch (error) {
+      console.error("❌ AI analysis error:", error);
+      return null;
+    }
+  };
+
   const handleImageSelection = async (
     result: ImagePicker.ImagePickerResult
   ) => {
@@ -250,19 +337,95 @@ export default function ReportIssuePage() {
         Alert.alert("Limit Reached", "You can upload a maximum of 3 images.");
         return;
       }
+
       const newImage: UploadedImage = {
         uri: result.assets[0].uri,
         uploading: true,
       };
+
       setImages((prev) => [...prev, newImage]);
-      const storageId: any = await uploadImageToConvex(result.assets[0].uri);
-      setImages((prev) =>
-        prev.map((img) =>
-          img.uri === newImage.uri
-            ? { ...img, storageId, uploading: false }
-            : img
-        )
-      );
+      setAiAnalysisInProgress(true);
+
+      try {
+        // Upload to Convex
+        const storageId = await uploadImageToConvex(result.assets[0].uri);
+
+        // Analyze with AI
+        const aiAnalysis = await analyzeImageWithAI(result.assets[0].uri);
+
+        if (aiAnalysis && aiAnalysis.isIssue && aiAnalysis.category) {
+          // Auto-fill form with AI suggestions
+          setFormData((prev) => ({
+            ...prev,
+            category: aiAnalysis.category || prev.category,
+            description: prev.description || aiAnalysis.suggestions || "",
+            priority:
+              prev.priority === "medium"
+                ? AIUtils.suggestPriority({
+                    success: true,
+                    predictions: {
+                      issue_detection: {
+                        success:true,
+                        is_issue: aiAnalysis.isIssue,
+                        confidence: aiAnalysis.confidence,
+                        predicted_class: "",
+                        probabilities:{
+                          issue:aiAnalysis.confidence!,
+                          no_issue:aiAnalysis.confidence!
+                        },
+                      },
+                      category_classification: {
+                        predicted_class: aiAnalysis.category || "",
+                        confidence: aiAnalysis.categoryConfidence || 0,
+                        top_3_predictions: [],
+                        all_probabilities: {},
+                      },
+                    },
+                  })
+                : prev.priority,
+          }));
+        }
+
+        // Update image with analysis results
+        setImages((prev:any) =>
+          prev.map((img:any) =>
+            img.uri === newImage.uri
+              ? {
+                  ...img,
+                  storageId,
+                  uploading: false,
+                  aiAnalysis,
+                }
+              : img
+          )
+        );
+
+        // Show warning if no issue detected with high confidence
+        if (aiAnalysis && !aiAnalysis.isIssue && aiAnalysis.confidence! > 0.8) {
+          Alert.alert(
+            "No Issue Detected",
+            "Our AI analysis suggests this image may not show a civic issue. Please upload a clearer image that shows the problem.",
+            [
+              {
+                text: "Remove Image",
+                onPress: () => removeImage(images.length),
+              },
+            ]
+          );
+        }
+      } catch (error) {
+        console.error("Error processing image:", error);
+        // Update image even if analysis fails
+        setImages((prev) =>
+          prev.map((img) =>
+            img.uri === newImage.uri
+              ? { ...img, storageId: undefined, uploading: false }
+              : img
+          )
+        );
+      } finally {
+        setAiAnalysisInProgress(false);
+      }
     }
   };
 
@@ -278,6 +441,7 @@ export default function ReportIssuePage() {
 
   const takePhoto = async () => {
     const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
@@ -291,6 +455,7 @@ export default function ReportIssuePage() {
       { text: "Gallery", onPress: pickImage },
       { text: "Cancel", style: "cancel" },
     ]);
+
   const removeImage = (index: number) =>
     setImages(images.filter((_, i) => i !== index));
 
@@ -308,7 +473,7 @@ export default function ReportIssuePage() {
     });
     setImages([]);
     setLocation(null);
-    getCurrentLocation(); // Re-fetch location for the new report
+    getCurrentLocation();
   };
 
   const handleSubmit = async () => {
@@ -339,6 +504,29 @@ export default function ReportIssuePage() {
     if (images.some((img) => img.uploading)) {
       console.log("❌ Images still uploading");
       return Alert.alert("Please wait", "Images are still uploading.");
+    }
+
+    // Check if any image was flagged as not an issue with high confidence
+    const nonIssueImages = images.filter(
+      (img) =>
+        img.aiAnalysis &&
+        !img.aiAnalysis.isIssue &&
+        img.aiAnalysis.confidence > 0.8
+    );
+
+    if (nonIssueImages.length > 0) {
+      const proceed = await new Promise((resolve) => {
+        Alert.alert(
+          "AI Detection Warning",
+          "Some of your images don't appear to show civic issues according to our AI analysis. Are you sure you want to proceed?",
+          [
+            { text: "Cancel", onPress: () => resolve(false) },
+            { text: "Proceed Anyway", onPress: () => resolve(true) },
+          ]
+        );
+      });
+
+      if (!proceed) return;
     }
 
     console.log("🔄 Starting submission process...");
@@ -375,14 +563,12 @@ export default function ReportIssuePage() {
       const issueId = await createIssue(issueData);
       console.log("✅ Issue created with ID:", issueId);
 
-      // Send local notification
       try {
         const issueNumber = `SMD-${issueId.slice(-6).toUpperCase()}`;
         console.log("🔔 Sending local notification for:", issueNumber);
         sendLocalNotificationForIssue(formData.title.trim(), issueNumber);
       } catch (notifError) {
         console.error("⚠️ Notification error (non-critical):", notifError);
-        // Don't fail the whole submission for notification errors
       }
 
       console.log("🎉 Showing success modal");
@@ -390,7 +576,6 @@ export default function ReportIssuePage() {
     } catch (error) {
       console.error("💥 Error creating issue:", error);
 
-      // More detailed error logging
       if (error instanceof Error) {
         console.error("Error name:", error.name);
         console.error("Error message:", error.message);
@@ -407,15 +592,28 @@ export default function ReportIssuePage() {
     }
   };
 
+  const hasAISuggestions = images.some((img) => img.aiAnalysis?.category);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Report Issue</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.headerTitle}>Report a Issue</Text>
+        <View style={styles.aiIndicator}>
+         
+        </View>
       </View>
+
+      {aiAnalysisInProgress && (
+        <View style={styles.aiAnalysisProgress}>
+          <ActivityIndicator color="#8b5cf6" />
+          <Text style={styles.aiAnalysisProgressText}>
+            Analyzing image with AI...
+          </Text>
+        </View>
+      )}
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -445,6 +643,7 @@ export default function ReportIssuePage() {
                 setFormData({ ...formData, category: value })
               }
               placeholder="Select a category"
+              aiSuggestion={hasAISuggestions}
             />
 
             <DropdownSelect
@@ -458,9 +657,21 @@ export default function ReportIssuePage() {
             />
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Description *</Text>
+              <View style={styles.labelContainer}>
+                <Text style={styles.label}>Description *</Text>
+                {hasAISuggestions && (
+                  <View style={styles.aiSuggestionBadge}>
+                    <Ionicons name="sparkles" size={12} color="#8b5cf6" />
+                    <Text style={styles.aiSuggestionText}>AI Enhanced</Text>
+                  </View>
+                )}
+              </View>
               <TextInput
-                style={[styles.input, styles.textArea]}
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  hasAISuggestions && styles.inputAIEnhanced,
+                ]}
                 value={formData.description}
                 onChangeText={(text) =>
                   setFormData({ ...formData, description: text })
@@ -473,7 +684,15 @@ export default function ReportIssuePage() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Photos (Optional)</Text>
+            <View style={{display:"flex",flexDirection:"row",justifyContent:"flex-start",alignItems:"center"}}>
+              <Text style={styles.sectionTitle}>Photos</Text>
+
+              <View style={styles.aiSuggestionBadge}>
+                <Ionicons name="sparkles" size={12} color="#8b5cf6" />
+                <Text style={styles.aiSuggestionText}>AI Suggested</Text>
+              </View>
+            </View>
+
             <View style={styles.imageContainer}>
               {images.map((image, index) => (
                 <View key={index} style={styles.imageWrapper}>
@@ -484,6 +703,29 @@ export default function ReportIssuePage() {
                   {image.uploading && (
                     <View style={styles.uploadingOverlay}>
                       <ActivityIndicator color="#fff" />
+                    </View>
+                  )}
+                  {image.aiAnalysis && (
+                    <View
+                      style={[
+                        styles.aiStatusOverlay,
+                        image.aiAnalysis.isIssue
+                          ? styles.aiStatusIssue
+                          : styles.aiStatusNoIssue,
+                      ]}
+                    >
+                      <Ionicons
+                        name={
+                          image.aiAnalysis.isIssue
+                            ? "checkmark-circle"
+                            : "alert-circle"
+                        }
+                        size={16}
+                        color="white"
+                      />
+                      <Text style={styles.aiStatusText}>
+                        {Math.round(image.aiAnalysis.confidence * 100)}%
+                      </Text>
                     </View>
                   )}
                   <TouchableOpacity
@@ -498,9 +740,11 @@ export default function ReportIssuePage() {
                 <TouchableOpacity
                   style={styles.addImageButton}
                   onPress={showImagePicker}
+                  disabled={aiAnalysisInProgress}
                 >
                   <Ionicons name="camera" size={32} color="#6b7280" />
                   <Text style={styles.addImageText}>Add Photo</Text>
+                
                 </TouchableOpacity>
               )}
             </View>
@@ -538,15 +782,28 @@ export default function ReportIssuePage() {
           <TouchableOpacity
             style={[
               styles.submitButton,
-              (isSubmitting || images.some((img) => img.uploading)) &&
+              (isSubmitting ||
+                images.some((img) => img.uploading) ||
+                aiAnalysisInProgress) &&
                 styles.disabledButton,
             ]}
             onPress={handleSubmit}
-            disabled={isSubmitting || images.some((img) => img.uploading)}
+            disabled={
+              isSubmitting ||
+              images.some((img) => img.uploading) ||
+              aiAnalysisInProgress
+            }
           >
-            <Text style={styles.submitButtonText}>
-              {isSubmitting ? "Submitting..." : "Submit Report"}
-            </Text>
+            <View style={styles.submitButtonContent}>
+              <Ionicons name={"document-text"} size={20} color="white" />
+              <Text style={styles.submitButtonText}>
+                {isSubmitting
+                  ? "Submitting..."
+                  : serverConnected
+                    ? "Submit Report"
+                    : "Submit Report"}
+              </Text>
+            </View>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -559,11 +816,22 @@ export default function ReportIssuePage() {
         <View style={styles.successModalOverlay}>
           <View style={styles.successModalContent}>
             <Ionicons name="checkmark-circle" size={64} color="#16a34a" />
-            <Text style={styles.successModalTitle}>Report Submitted!</Text>
-            <Text style={styles.successModalText}>
-              Thank you for your contribution. Your issue has been sent to the
-              relevant department for review.
+            <Text style={styles.successModalTitle}>
+              {serverConnected ? "Submitted!" : "Report Submitted!"}
             </Text>
+            <Text style={styles.successModalText}>
+              Your report has been{" "}
+              {serverConnected ? "enhanced with AI analysis and " : ""}submitted
+              to the relevant department for review.
+            </Text>
+            {images.some((img) => img.aiAnalysis?.isIssue) && (
+              <View style={styles.successModalAIInfo}>
+                <Ionicons name="sparkles" size={16} color="#8b5cf6" />
+                <Text style={styles.successModalAIText}>
+                  AI confirmed civic issues in your photos
+                </Text>
+              </View>
+            )}
             <TouchableOpacity
               style={styles.successModalButton}
               onPress={() => {
@@ -606,6 +874,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   headerTitle: { fontSize: 18, fontWeight: "bold", color: "white" },
+  aiIndicator: {
+    borderRadius: 12,
+    padding: 4,
+  },
+
+  // AI Analysis Progress
+  aiAnalysisProgress: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f3f4f6",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  aiAnalysisProgressText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: "#8b5cf6",
+    fontWeight: "600",
+  },
+
   form: { flex: 1, padding: 16 },
   section: {
     backgroundColor: "white",
@@ -623,6 +912,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#1f2937",
     marginBottom: 16,
+    
   },
   sectionHeader: {
     flexDirection: "row",
@@ -630,8 +920,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
+
+  // Input styling
   inputGroup: { marginBottom: 16 },
-  label: { fontSize: 14, fontWeight: "600", color: "#374151", marginBottom: 8 },
+  labelContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  label: { fontSize: 14, fontWeight: "600", color: "#374151" },
+  aiSuggestionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f3e8ff",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginLeft: 8,
+    marginBottom:15,
+    width: "30%",
+  },
+  aiSuggestionText: {
+    fontSize: 10,
+    color: "#8b5cf6",
+    fontWeight: "600",
+    marginLeft: 2,
+  },
   input: {
     borderWidth: 1,
     borderColor: "#d1d5db",
@@ -641,10 +955,104 @@ const styles = StyleSheet.create({
     color: "#000",
     backgroundColor: "#f9fafb",
   },
-  textArea: { height: 100, textAlignVertical: "top", color: "#000" },
-  imageContainer: { flexDirection: "row", flexWrap: "wrap" },
-  imageWrapper: { position: "relative", marginRight: 8, marginBottom: 8 },
-  uploadedImage: { width: imageSize, height: imageSize, borderRadius: 8 },
+  inputAIEnhanced: {
+    borderColor: "#8b5cf6",
+    backgroundColor: "#faf5ff",
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: "top",
+    color: "#000",
+  },
+
+  // AI Analysis Card
+  aiAnalysisCard: {
+    backgroundColor: "#faf5ff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#e9d5ff",
+  },
+  aiAnalysisHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  aiAnalysisTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#8b5cf6",
+    marginLeft: 8,
+  },
+  aiAnalysisContent: {
+    gap: 12,
+  },
+  analysisItem: {
+    flexDirection: "column",
+  },
+  analysisLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6b7280",
+    marginBottom: 4,
+  },
+  analysisResult: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  issueStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    flex: 1,
+    marginRight: 8,
+  },
+  issueStatusIssue: {
+    backgroundColor: "#dcfce7",
+  },
+  issueStatusNoIssue: {
+    backgroundColor: "#fef3c7",
+  },
+  issueStatusText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#374151",
+    textAlign: "center",
+  },
+  confidenceText: {
+    fontSize: 12,
+    color: "#6b7280",
+    fontWeight: "500",
+  },
+  categoryText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1f2937",
+  },
+  suggestionsText: {
+    fontSize: 13,
+    color: "#4b5563",
+    fontStyle: "italic",
+    lineHeight: 18,
+  },
+
+  // Image handling
+  imageContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  imageWrapper: {
+    position: "relative",
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  uploadedImage: {
+    width: imageSize,
+    height: imageSize,
+    borderRadius: 8,
+  },
   uploadingOverlay: {
     position: "absolute",
     top: 0,
@@ -655,6 +1063,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
+  },
+  aiStatusOverlay: {
+    position: "absolute",
+    bottom: 4,
+    left: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  aiStatusIssue: {
+    backgroundColor: "#16a34a",
+  },
+  aiStatusNoIssue: {
+    backgroundColor: "#f59e0b",
+  },
+  aiStatusText: {
+    fontSize: 10,
+    color: "white",
+    fontWeight: "600",
+    marginLeft: 2,
   },
   removeImageButton: {
     position: "absolute",
@@ -674,7 +1104,34 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  addImageText: { fontSize: 12, color: "#6b7280", marginTop: 4 },
+  addImageText: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 4,
+    fontWeight: "600",
+  },
+  addImageSubtext: {
+    fontSize: 10,
+    color: "#8b5cf6",
+    marginTop: 2,
+  },
+
+  // AI Summary
+  aiSummaryContainer: {
+    gap: 12,
+  },
+  aiSummaryItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  aiSummaryText: {
+    fontSize: 14,
+    color: "#4b5563",
+    marginLeft: 8,
+    flex: 1,
+  },
+
+  // Location
   locationButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -689,7 +1146,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 4,
   },
-  locationInfoText: { fontSize: 12, color: "#6b7280", marginTop: 8 },
+  locationInfoText: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 8,
+  },
+
+  // Submit button
   submitButton: {
     backgroundColor: "#16a34a",
     paddingVertical: 16,
@@ -697,8 +1160,19 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     alignItems: "center",
   },
-  disabledButton: { backgroundColor: "#9ca3af" },
-  submitButtonText: { color: "white", fontSize: 16, fontWeight: "600" },
+  disabledButton: {
+    backgroundColor: "#9ca3af",
+  },
+  submitButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  submitButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
 
   // Dropdown Styles
   dropdownButton: {
@@ -711,8 +1185,17 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: "#f9fafb",
   },
-  dropdownButtonText: { fontSize: 16, color: "#000" },
-  placeholderText: { color: "#9ca3af" },
+  dropdownButtonAISuggested: {
+    borderColor: "#8b5cf6",
+    backgroundColor: "#faf5ff",
+  },
+  dropdownButtonText: {
+    fontSize: 16,
+    color: "#000",
+  },
+  placeholderText: {
+    color: "#9ca3af",
+  },
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
@@ -725,14 +1208,16 @@ const styles = StyleSheet.create({
     padding: 16,
     width: "80%",
     maxHeight: "60%",
-    
   },
   optionItem: {
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#f3f4f6",
   },
-  optionText: { fontSize: 16, color: "#000" },
+  optionText: {
+    fontSize: 16,
+    color: "#000",
+  },
 
   // Success Modal Styles
   successModalOverlay: {
@@ -754,12 +1239,28 @@ const styles = StyleSheet.create({
     color: "#1f2937",
     marginTop: 16,
     marginBottom: 8,
+    textAlign: "center",
   },
   successModalText: {
     fontSize: 16,
     color: "#4b5563",
     textAlign: "center",
+    marginBottom: 16,
+  },
+  successModalAIInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f3e8ff",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     marginBottom: 24,
+  },
+  successModalAIText: {
+    fontSize: 12,
+    color: "#8b5cf6",
+    fontWeight: "600",
+    marginLeft: 4,
   },
   successModalButton: {
     backgroundColor: "#16a34a",
@@ -768,8 +1269,14 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
   },
-  successModalButtonText: { color: "white", fontSize: 16, fontWeight: "600" },
-  successModalSecondaryButton: { marginTop: 12 },
+  successModalButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  successModalSecondaryButton: {
+    marginTop: 12,
+  },
   successModalSecondaryButtonText: {
     color: "#16a34a",
     fontSize: 16,
