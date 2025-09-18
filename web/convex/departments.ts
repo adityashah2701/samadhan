@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { DEFAULT_DEPARTMENTS } from "./constants/categoryDepartmentMapping";
 
 // Get all departments
 export const getDepartments = query({
@@ -90,5 +91,67 @@ export const assignIssueToDepartment = mutation({
     await ctx.db.patch(args.issueId, updates);
 
     return { success: true };
+  },
+});
+
+// Initialize default departments if they don't exist
+export const initializeDefaultDepartments = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const existingDepartments = await ctx.db.query("departments").collect();
+    const existingDepartmentNames = new Set(existingDepartments.map(d => d.name));
+    
+    const departmentsToCreate = DEFAULT_DEPARTMENTS.filter(
+      dept => !existingDepartmentNames.has(dept.name)
+    );
+    
+    if (departmentsToCreate.length === 0) {
+      return { message: "All default departments already exist", count: 0 };
+    }
+    
+    const now = Date.now();
+    const createdDepartments = [];
+    
+    for (const dept of departmentsToCreate) {
+      const departmentId = await ctx.db.insert("departments", {
+        name: dept.name,
+        description: dept.description,
+        headOfDepartment: dept.headOfDepartment,
+        contactEmail: dept.contactEmail,
+        contactPhone: dept.contactPhone,
+        isActive: true,
+        createdAt: now,
+      });
+      
+      createdDepartments.push({ id: departmentId, name: dept.name });
+    }
+    
+    return { 
+      message: "Default departments initialized successfully", 
+      count: createdDepartments.length,
+      departments: createdDepartments
+    };
+  },
+});
+
+// Get department by name (helper function)
+export const getDepartmentByName = query({
+  args: { name: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("departments")
+      .withIndex("by_name", (q) => q.eq("name", args.name))
+      .first();
+  },
+});
+
+// Get active departments only
+export const getActiveDepartments = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("departments")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
   },
 });

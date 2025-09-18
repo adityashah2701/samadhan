@@ -179,7 +179,7 @@ export default function HomePage() {
               <View style={styles.headerRight}>
                 <TouchableOpacity
                   style={styles.headerButton}
-                  onPress={() => router.push("/(civic)/notifications")}
+                  onPress={() => router.push("/(notifications)/notifications")}
                   activeOpacity={0.7}
                 >
                   <View style={styles.headerButtonBg}>
@@ -192,7 +192,7 @@ export default function HomePage() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.headerButton}
-                  onPress={() => router.push("/(civic)/profile")}
+                  onPress={() => router.push("/(profile)/profile")}
                   activeOpacity={0.7}
                 >
                   <View style={styles.headerButtonBg}>
@@ -239,7 +239,7 @@ export default function HomePage() {
 
             <TouchableOpacity
               style={styles.reportButton}
-              onPress={() => router.push("/(civic)/report")}
+              onPress={() => router.push("/(tabs)/create")}
               activeOpacity={0.8}
             >
               <LinearGradient
@@ -263,25 +263,25 @@ export default function HomePage() {
                 icon: "warning",
                 text: "Report Issue",
                 colors: ["#ef4444", "#dc2626"],
-                route: "/(civic)/report",
+                route: "/(tabs)/create",
               },
               {
                 icon: "search",
                 text: "Track Issues",
                 colors: ["#3b82f6", "#1d4ed8"],
-                route: "/(civic)/track",
+                route: "/(tabs)/track",
               },
               {
                 icon: "map",
                 text: "View Map",
                 colors: ["#10b981", "#059669"],
-                route: "/(civic)/map",
+                route: "/(tabs)/map",
               },
               {
                 icon: "newspaper",
                 text: "Latest News",
                 colors: ["#8b5cf6", "#7c3aed"],
-                route: "/(civic)/news",
+                route: "/(content)/news",
               },
             ].map((action, index) => (
               <TouchableOpacity
@@ -453,7 +453,7 @@ export default function HomePage() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Reports</Text>
             <TouchableOpacity
-              onPress={() => router.push("/(civic)/track")}
+              onPress={() => router.push("/(tabs)/track")}
               style={styles.viewAllButton}
             >
               <Text style={styles.viewAllText}>View All</Text>
@@ -496,7 +496,7 @@ export default function HomePage() {
               <TouchableOpacity
                 key={issue._id}
                 style={styles.issueCard}
-                onPress={() => router.push(`/(civic)/issues/${issue._id}`)}
+                onPress={() => router.push(`/(issues)/${issue._id}`)}
                 activeOpacity={0.9}
               >
                 <View style={styles.issueCardContent}>
@@ -552,7 +552,7 @@ export default function HomePage() {
               </Text>
               <TouchableOpacity
                 style={styles.emptyStateButton}
-                onPress={() => router.push("/(civic)/report")}
+                onPress={() => router.push("/(tabs)/create")}
               >
                 <Text style={styles.emptyStateButtonText}>
                   Report First Issue

@@ -31,19 +31,12 @@ import {
   type CompleteAnalysisResult,
 } from "../services/aiAnalysisService";
 
-const CATEGORIES = [
-  "Infrastructure",
-  "Roads",
-  "Water Supply",
-  "Sanitation",
-  "Electricity",
-  "Public Transport",
-  "Parks & Recreation",
-  "Waste Management",
-  "Street Lighting",
-  "Drainage",
-  "Other",
-];
+// Import from constants
+import {
+  CATEGORIES,
+  getCategoryDepartment,
+  getCategoryInfo,
+} from "../constants/categories";
 
 const jharkhandCities = [
   { name: "Ranchi", lat: 23.3441, lng: 85.3096 },
@@ -78,7 +71,33 @@ interface UploadedImage {
   };
 }
 
-// Reusable Dropdown Select Component
+// Add new component for Department Assignment Preview
+const DepartmentAssignmentPreview = ({ category }: { category: string }) => {
+  const categoryInfo = getCategoryInfo(category);
+
+  if (!categoryInfo) return null;
+
+  return (
+    <View style={styles.departmentPreviewCard}>
+      <View style={styles.departmentPreviewHeader}>
+        <Ionicons name="business-outline" size={20} color="#16a34a" />
+        <Text style={styles.departmentPreviewTitle}>Will be assigned to:</Text>
+      </View>
+      <View style={styles.departmentInfo}>
+        <Text style={styles.departmentName}>{categoryInfo.department}</Text>
+        <Text style={styles.departmentDescription}>
+          {categoryInfo.description}
+        </Text>
+      </View>
+      <View style={styles.autoAssignBadge}>
+        <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
+        <Text style={styles.autoAssignText}>Auto-assigned</Text>
+      </View>
+    </View>
+  );
+};
+
+// Update the DropdownSelect component to show department info
 const DropdownSelect = ({
   label,
   options,
@@ -134,20 +153,33 @@ const DropdownSelect = ({
           onPress={() => setModalVisible(false)}
         >
           <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Category</Text>
             <FlatList
               data={options}
               keyExtractor={(item) => item.value || item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.optionItem}
-                  onPress={() => {
-                    onValueChange(item.value || item);
-                    setModalVisible(false);
-                  }}
-                >
-                  <Text style={styles.optionText}>{item.label || item}</Text>
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const categoryInfo = getCategoryInfo(item);
+                return (
+                  <TouchableOpacity
+                    style={styles.categoryOptionItem}
+                    onPress={() => {
+                      onValueChange(item.value || item);
+                      setModalVisible(false);
+                    }}
+                  >
+                    <View style={styles.categoryOptionHeader}>
+                      <Ionicons
+                        name={categoryInfo?.icon || "help-circle-outline"}
+                        size={20}
+                        color="#16a34a"
+                      />
+                      <Text style={styles.categoryOptionText}>
+                        {item.label || item}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
             />
           </View>
         </TouchableOpacity>
@@ -155,7 +187,6 @@ const DropdownSelect = ({
     </>
   );
 };
-
 
 export default function EnhancedReportIssuePage() {
   const { user } = useUser();
@@ -365,13 +396,13 @@ export default function EnhancedReportIssuePage() {
                     success: true,
                     predictions: {
                       issue_detection: {
-                        success:true,
+                        success: true,
                         is_issue: aiAnalysis.isIssue,
                         confidence: aiAnalysis.confidence,
                         predicted_class: "",
-                        probabilities:{
-                          issue:aiAnalysis.confidence!,
-                          no_issue:aiAnalysis.confidence!
+                        probabilities: {
+                          issue: aiAnalysis.confidence!,
+                          no_issue: aiAnalysis.confidence!,
                         },
                       },
                       category_classification: {
@@ -387,8 +418,8 @@ export default function EnhancedReportIssuePage() {
         }
 
         // Update image with analysis results
-        setImages((prev:any) =>
-          prev.map((img:any) =>
+        setImages((prev: any) =>
+          prev.map((img: any) =>
             img.uri === newImage.uri
               ? {
                   ...img,
@@ -560,13 +591,20 @@ export default function EnhancedReportIssuePage() {
         JSON.stringify(issueData, null, 2)
       );
 
-      const issueId = await createIssue(issueData);
-      console.log("✅ Issue created with ID:", issueId);
+      const result = await createIssue(issueData);
+      console.log("✅ Issue created:", result);
+
+      // Show success with department info
+      const departmentName = result.assignedDepartment;
 
       try {
-        const issueNumber = `SMD-${issueId.slice(-6).toUpperCase()}`;
-        console.log("🔔 Sending local notification for:", issueNumber);
-        sendLocalNotificationForIssue(formData.title.trim(), issueNumber);
+        const issueNumber =
+          result.issueNumber || `SMD-${result.issueId.slice(-6).toUpperCase()}`;
+        const notificationTitle = departmentName
+          ? "✅ Issue Assigned to Department"
+          : "✅ Issue Submitted Successfully";
+
+        sendLocalNotificationForIssue(notificationTitle, issueNumber);
       } catch (notifError) {
         console.error("⚠️ Notification error (non-critical):", notifError);
       }
@@ -601,9 +639,7 @@ export default function EnhancedReportIssuePage() {
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Report a Issue</Text>
-        <View style={styles.aiIndicator}>
-         
-        </View>
+        <View style={styles.aiIndicator}></View>
       </View>
 
       {aiAnalysisInProgress && (
@@ -684,7 +720,14 @@ export default function EnhancedReportIssuePage() {
           </View>
 
           <View style={styles.section}>
-            <View style={{display:"flex",flexDirection:"row",justifyContent:"flex-start",alignItems:"center"}}>
+            <View
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                justifyContent: "flex-start",
+                alignItems: "center",
+              }}
+            >
               <Text style={styles.sectionTitle}>Photos</Text>
 
               <View style={styles.aiSuggestionBadge}>
@@ -744,7 +787,6 @@ export default function EnhancedReportIssuePage() {
                 >
                   <Ionicons name="camera" size={32} color="#6b7280" />
                   <Text style={styles.addImageText}>Add Photo</Text>
-                
                 </TouchableOpacity>
               )}
             </View>
@@ -795,13 +837,9 @@ export default function EnhancedReportIssuePage() {
             }
           >
             <View style={styles.submitButtonContent}>
-              <Ionicons name={"document-text"} size={20} color="white" />
+              <Ionicons name="document-text" size={20} color="white" />
               <Text style={styles.submitButtonText}>
-                {isSubmitting
-                  ? "Submitting..."
-                  : serverConnected
-                    ? "Submit Report"
-                    : "Submit Report"}
+                {isSubmitting ? "Submitting..." : "Submit Report"}
               </Text>
             </View>
           </TouchableOpacity>
@@ -816,27 +854,13 @@ export default function EnhancedReportIssuePage() {
         <View style={styles.successModalOverlay}>
           <View style={styles.successModalContent}>
             <Ionicons name="checkmark-circle" size={64} color="#16a34a" />
-            <Text style={styles.successModalTitle}>
-              {serverConnected ? "Submitted!" : "Report Submitted!"}
-            </Text>
-            <Text style={styles.successModalText}>
-              Your report has been{" "}
-              {serverConnected ? "enhanced with AI analysis and " : ""}submitted
-              to the relevant department for review.
-            </Text>
-            {images.some((img) => img.aiAnalysis?.isIssue) && (
-              <View style={styles.successModalAIInfo}>
-                <Ionicons name="sparkles" size={16} color="#8b5cf6" />
-                <Text style={styles.successModalAIText}>
-                  AI confirmed civic issues in your photos
-                </Text>
-              </View>
-            )}
+            <Text style={styles.successModalTitle}>Report Submitted!</Text>
+
             <TouchableOpacity
               style={styles.successModalButton}
               onPress={() => {
                 setSuccessModalVisible(false);
-                router.push("/(civic)/track");
+                router.push("/(tabs)/track");
               }}
             >
               <Text style={styles.successModalButtonText}>View My Reports</Text>
@@ -912,7 +936,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#1f2937",
     marginBottom: 16,
-    
   },
   sectionHeader: {
     flexDirection: "row",
@@ -937,7 +960,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 12,
     marginLeft: 8,
-    marginBottom:15,
+    marginBottom: 15,
     width: "30%",
   },
   aiSuggestionText: {
@@ -1174,6 +1197,56 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
+  // Department Assignment Preview Card
+  departmentPreviewCard: {
+    backgroundColor: "#f0fdf4",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+  },
+  departmentPreviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  departmentPreviewTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#16a34a",
+    marginLeft: 8,
+  },
+  departmentInfo: {
+    marginBottom: 12,
+  },
+  departmentName: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#1f2937",
+    marginBottom: 4,
+  },
+  departmentDescription: {
+    fontSize: 13,
+    color: "#4b5563",
+    lineHeight: 18,
+  },
+  autoAssignBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#dcfce7",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+  },
+  autoAssignText: {
+    fontSize: 11,
+    color: "#16a34a",
+    fontWeight: "600",
+    marginLeft: 4,
+  },
+
   // Dropdown Styles
   dropdownButton: {
     flexDirection: "row",
@@ -1206,8 +1279,46 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 12,
     padding: 16,
-    width: "80%",
-    maxHeight: "60%",
+    width: "90%",
+    maxHeight: "70%",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#1f2937",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  categoryOptionItem: {
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+  },
+  categoryOptionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  categoryOptionText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1f2937",
+    marginLeft: 12,
+  },
+  categoryOptionDetails: {
+    marginLeft: 32,
+  },
+  categoryDepartment: {
+    fontSize: 13,
+    color: "#16a34a",
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  categoryDescription: {
+    fontSize: 12,
+    color: "#6b7280",
+    lineHeight: 16,
   },
   optionItem: {
     paddingVertical: 16,
@@ -1246,6 +1357,23 @@ const styles = StyleSheet.create({
     color: "#4b5563",
     textAlign: "center",
     marginBottom: 16,
+  },
+  successModalDepartmentInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0fdf4",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+  },
+  successModalDepartmentText: {
+    fontSize: 14,
+    color: "#16a34a",
+    fontWeight: "600",
+    marginLeft: 6,
   },
   successModalAIInfo: {
     flexDirection: "row",

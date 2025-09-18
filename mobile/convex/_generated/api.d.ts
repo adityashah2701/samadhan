@@ -14,6 +14,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as civicIssues from "../civicIssues.js";
+import type * as constants_categoryDepartmentMapping from "../constants/categoryDepartmentMapping.js";
 import type * as departments from "../departments.js";
 import type * as files from "../files.js";
 import type * as notifications from "../notifications.js";
@@ -29,6 +30,7 @@ import type * as users from "../users.js";
  */
 declare const fullApi: ApiFromModules<{
   civicIssues: typeof civicIssues;
+  "constants/categoryDepartmentMapping": typeof constants_categoryDepartmentMapping;
   departments: typeof departments;
   files: typeof files;
   notifications: typeof notifications;

@@ -1,8 +1,10 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
+import { getCategoryDepartment } from "./constants/categoryDepartmentMapping";
 
-// Create a new civic issue report with file upload support
+// Create a new civic issue report with automatic department assignment
 export const createIssue = mutation({
   args: {
     reportedBy: v.id("users"),
@@ -32,7 +34,24 @@ export const createIssue = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
 
-    // DON'T generate URLs in mutation - store storage IDs and generate URLs in queries
+    // Get the appropriate department for this category
+    const departmentName = getCategoryDepartment(args.category);
+    let assignedToDepartment: Id<"departments"> | undefined = undefined;
+    let initialStatus: "pending" | "acknowledged" = "pending";
+
+    if (departmentName) {
+      // Find the department by name
+      const department = await ctx.db
+        .query("departments")
+        .withIndex("by_name", (q) => q.eq("name", departmentName))
+        .first();
+      
+      if (department && department.isActive) {
+        assignedToDepartment = department._id;
+        initialStatus = "acknowledged"; // Auto-acknowledge when assigned to department
+      }
+    }
+
     const issueData = {
       reportedBy: args.reportedBy,
       title: args.title,
@@ -41,9 +60,11 @@ export const createIssue = mutation({
       subcategory: args.subcategory,
       location: args.location,
       priority: args.priority,
-      images: args.images, // Store storage IDs
-      // Don't set imageUrls here - generate them in queries when needed
-      status: "pending" as const,
+      images: args.images,
+      status: initialStatus,
+      assignedToDepartment: assignedToDepartment, // No need to convert now
+      assignedBy: assignedToDepartment ? args.reportedBy : undefined, // Auto-assigned by system
+      assignedAt: assignedToDepartment ? now : undefined,
       upvotes: 0,
       upvotedBy: [],
       viewCount: 0,
@@ -58,11 +79,26 @@ export const createIssue = mutation({
       issueId,
       updatedBy: args.reportedBy,
       previousStatus: "",
-      newStatus: "pending",
-      note: "Issue reported",
+      newStatus: initialStatus,
+      note: assignedToDepartment 
+        ? `Issue automatically assigned to ${departmentName}`
+        : "Issue reported",
       isPublic: true,
       createdAt: now,
     });
+
+    // If department was assigned, create assignment status update
+    if (assignedToDepartment) {
+      await ctx.db.insert("statusUpdates", {
+        issueId,
+        updatedBy: args.reportedBy, // System assignment
+        previousStatus: "pending",
+        newStatus: "acknowledged", 
+        note: `Automatically assigned to ${departmentName} based on category: ${args.category}`,
+        isPublic: true,
+        createdAt: now + 1, // Slightly later timestamp
+      });
+    }
 
     // Generate issue tracking number
     const issueNumber = `SMD-${issueId.slice(-6).toUpperCase()}`;
@@ -76,17 +112,30 @@ export const createIssue = mutation({
     });
 
     // Send push notification for successful issue creation
+    const notificationTitle = assignedToDepartment 
+      ? "✅ Issue Assigned Successfully"
+      : "✅ Issue Reported Successfully";
+    
+    const notificationBody = assignedToDepartment
+      ? `Your issue "${args.title}" has been assigned to ${departmentName}. Tracking ID: ${issueNumber}`
+      : `Your issue "${args.title}" has been submitted. Tracking ID: ${issueNumber}`;
+
     await ctx.runMutation(internal.notifications.sendPushNotification, {
       userId: args.reportedBy,
-      title: "✅ Issue Reported Successfully",
-      body: `Your issue "${args.title}" has been submitted with ID: ${issueNumber}`,
+      title: notificationTitle,
+      body: notificationBody,
       data: {
         issueId,
         type: "issue_created",
       },
     });
 
-    return issueId;
+    return {
+      issueId,
+      assignedDepartment: departmentName,
+      status: initialStatus,
+      issueNumber
+    };
   },
 });
 // Get all issues with filters
@@ -127,6 +176,12 @@ export const getIssues = query({
       issues.map(async (issue) => {
         const reporter = await ctx.db.get(issue.reportedBy);
         
+        // Get department info if assigned
+        let assignedDepartment = null;
+        if (issue.assignedToDepartment) {
+          assignedDepartment = await ctx.db.get(issue.assignedToDepartment);
+        }
+        
         // Generate image URLs from storage IDs
         let imageUrls: string[] = [];
         if (issue.images && issue.images.length > 0) {
@@ -143,6 +198,14 @@ export const getIssues = query({
         return {
           ...issue,
           imageUrls, // Add the generated URLs
+          assignedDepartment: assignedDepartment ? {
+            _id: assignedDepartment._id,
+            name: assignedDepartment.name,
+            description: assignedDepartment.description,
+            headOfDepartment: assignedDepartment.headOfDepartment,
+            contactEmail: assignedDepartment.contactEmail,
+            isActive: assignedDepartment.isActive
+          } : null,
           reporter: reporter ? {
             firstName: reporter.firstName,
             lastName: reporter.lastName,
@@ -153,6 +216,76 @@ export const getIssues = query({
     );
 
     return issuesWithDetails;
+  },
+});
+
+// Get the department that will be assigned for a given category
+export const getCategoryDepartmentMapping = query({
+  args: { category: v.string() },
+  handler: async (ctx, args) => {
+    const departmentName = getCategoryDepartment(args.category);
+    
+    if (!departmentName) {
+      return null;
+    }
+
+    // Find the actual department record
+    const department = await ctx.db
+      .query("departments")
+      .withIndex("by_name", (q) => q.eq("name", departmentName))
+      .first();
+    
+    return department ? {
+      departmentId: department._id,
+      departmentName: department.name,
+      description: department.description,
+      headOfDepartment: department.headOfDepartment,
+      contactEmail: department.contactEmail,
+      contactPhone: department.contactPhone,
+      isActive: department.isActive
+    } : null;
+  },
+});
+
+// Get all category-department mappings
+export const getAllCategoryDepartmentMappings = query({
+  args: {},
+  handler: async (ctx) => {
+    const mappings = [];
+    const categories = Object.keys({
+      "Infrastructure": "Public Works Department",
+      "Roads": "Public Works Department", 
+      "Water Supply": "Water Resources Department",
+      "Sanitation": "Health & Sanitation Department",
+      "Electricity": "Electricity Board",
+      "Public Transport": "Transport Department",
+      "Parks & Recreation": "Parks & Recreation Department",
+      "Waste Management": "Waste Management Department",
+      "Street Lighting": "Municipal Corporation", 
+      "Drainage": "Water Resources Department",
+      "Other": "General Administration"
+    });
+    
+    for (const category of categories) {
+      const departmentName = getCategoryDepartment(category);
+      if (departmentName) {
+        const department = await ctx.db
+          .query("departments")
+          .withIndex("by_name", (q) => q.eq("name", departmentName))
+          .first();
+        
+        if (department) {
+          mappings.push({
+            category,
+            departmentId: department._id,
+            departmentName: department.name,
+            isActive: department.isActive
+          });
+        }
+      }
+    }
+    
+    return mappings;
   },
 });
 
