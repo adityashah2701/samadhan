@@ -565,51 +565,7 @@ export default function HomePage() {
         <View style={styles.bottomPadding} />
       </ScrollView>
 
-      <View style={styles.bottomNav}>
-        <LinearGradient
-          colors={["#ffffff", "#f9fafb"]}
-          style={styles.bottomNavGradient}
-        >
-          <View style={styles.bottomNavContent}>
-            <TouchableOpacity
-              style={[styles.navItem, styles.activeNavItem]}
-              onPress={() => router.push("/(home)")}
-              activeOpacity={0.7}
-            >
-              <View style={styles.activeNavIndicator} />
-              <Ionicons name="home" size={24} color="#16a34a" />
-              <Text style={[styles.navText, styles.activeNavText]}>Home</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.navItem}
-              onPress={() => router.push("/(civic)/report")}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="add-circle-outline" size={24} color="#6b7280" />
-              <Text style={styles.navText}>Report</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.navItem}
-              onPress={() => router.push("/(civic)/track")}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="search-outline" size={24} color="#6b7280" />
-              <Text style={styles.navText}>Track</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.navItem}
-              onPress={() => router.push("/(civic)/map")}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="map-outline" size={24} color="#6b7280" />
-              <Text style={styles.navText}>Map</Text>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-      </View>
+  
     </View>
   );
 }
