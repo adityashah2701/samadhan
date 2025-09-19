@@ -13,6 +13,16 @@ import io
 import os
 from datetime import datetime
 import logging
+import os
+import logging
+import tensorflow as tf
+
+# Disable all GPU devices (forces CPU only)
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
+# Suppress TensorFlow logging except errors
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
 
 # Initialize Flask app
 app = Flask(__name__)
