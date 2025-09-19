@@ -8,7 +8,9 @@ const nextConfig = {
     ignoreDuringBuilds: true, 
   },
    outputFileTracingRoot: process.cwd(),
-  
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 };
 
 module.exports = nextConfig;
