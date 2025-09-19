@@ -123,7 +123,7 @@ export default function NotificationsPage() {
 
     // Navigate to related issue if available
     if (notification.relatedIssueId) {
-      router.push(`/(civic)/issues/${notification.relatedIssueId}`)
+      router.push(`/(issues)/${notification.relatedIssueId}`)
     }
   }
 

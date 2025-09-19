@@ -6,10 +6,7 @@ export default function IssuesLayout() {
       <Stack.Screen 
         name="[id]" 
         options={{ 
-          title: 'Issue Details',
-          headerStyle: { backgroundColor: '#16a34a' },
-          headerTintColor: '#fff',
-          headerTitleStyle: { fontWeight: 'bold' }
+     headerShown:false
         }} 
       />
     </Stack>

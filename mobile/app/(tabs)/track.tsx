@@ -134,7 +134,7 @@ export default function TrackIssuesPage() {
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Track Issues</Text>
-        <TouchableOpacity onPress={() => router.push('/(civic)/report')}>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/create')}>
           <Ionicons name="add" size={24} color="white" />
         </TouchableOpacity>
       </View>
@@ -237,7 +237,7 @@ export default function TrackIssuesPage() {
             <TouchableOpacity 
               key={issue._id} 
               style={styles.issueCard}
-              onPress={() => router.push(`/(civic)/issues/${issue._id}`)}
+              onPress={() => router.push(`/(issues)/${issue._id}`)}
             >
               {/* Issue Header */}
               <View style={styles.issueHeader}>
@@ -328,7 +328,7 @@ export default function TrackIssuesPage() {
             {showMyIssues && (
               <TouchableOpacity 
                 style={styles.reportButton}
-                onPress={() => router.push('/(civic)/report')}
+                onPress={() => router.push('/(tabs)/create')}
               >
                 <Ionicons name="add" size={20} color="white" />
                 <Text style={styles.reportButtonText}>Report First Issue</Text>

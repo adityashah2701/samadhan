@@ -1,7 +1,3 @@
-
-
-import Constants from 'expo-constants';
-
 interface IssueDetectionResult {
   success: boolean;
   predicted_class?: string;
@@ -18,7 +14,7 @@ interface IssueDetectionResult {
 interface CategoryClassificationResult {
   predicted_class: string;
   confidence: number;
-  top_3_predictions: Array<{class: string; confidence: number}>;
+  top_3_predictions: Array<{ class: string; confidence: number }>;
   all_probabilities: Record<string, number>;
 }
 
@@ -44,36 +40,36 @@ interface ServerStatus {
   timestamp: string;
 }
 
-class AIAnalysisService {
+export default class AIAnalysisService {
   private baseUrl: string;
   private timeout: number = 30000; // 30 seconds timeout
 
   constructor() {
     // Get Flask server URL from environment or use default
     const envUrl = process.env.EXPO_PUBLIC_FLASK_SERVER_URL!;
-    this.baseUrl = envUrl || 'https://samadhan-ml-task-server.onrender.com';
-    
+    this.baseUrl = envUrl || "https://samadhan-ml-task-server.onrender.com";
+
     // For development, you might want to use your local machine's IP
     if (__DEV__) {
-      console.log('🔧 Flask server URL:', this.baseUrl);
-      if (this.baseUrl.includes('localhost') || this.baseUrl.includes('devtunnels')) {
-        console.log('🔧 Development mode detected');
+      console.log("🔧 Flask server URL:", this.baseUrl);
+      if (
+        this.baseUrl.includes("localhost") ||
+        this.baseUrl.includes("devtunnels")
+      ) {
+        console.log("🔧 Development mode detected");
       }
     }
   }
 
-  /**
-   * Check if the Flask server is running and model is loaded
-   */
   async checkServerStatus(): Promise<ServerStatus | null> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for status
-      console.log("FETCHING STATUS AT :- ")
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      console.log("🔧 Flask server URL:", this.baseUrl);
       const response = await fetch(`${this.baseUrl}/status`, {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         signal: controller.signal,
       });
@@ -86,24 +82,21 @@ class AIAnalysisService {
 
       const result = await response.json();
       return result as ServerStatus;
-    } catch (error) {
-      console.error('❌ Failed to check server status:', error);
+    } catch (error: any) {
+      console.error("❌ Failed to check server status:", error.message);
       return null;
     }
   }
 
-  /**
-   * Convert image URI to base64
-   */
   private async imageUriToBase64(imageUri: string): Promise<string> {
     try {
       const response = await fetch(imageUri);
       const blob = await response.blob();
-      
+
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
-          const base64Data = (reader.result as string).split(',')[1];
+          const base64Data = (reader.result as string).split(",")[1];
           resolve(base64Data);
         };
         reader.onerror = reject;
@@ -120,14 +113,14 @@ class AIAnalysisService {
   async analyzeIssueDetection(imageUri: string): Promise<IssueDetectionResult> {
     try {
       const base64Data = await this.imageUriToBase64(imageUri);
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
       const response = await fetch(`${this.baseUrl}/predict/issue-base64`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           image: base64Data,
@@ -138,7 +131,7 @@ class AIAnalysisService {
       clearTimeout(timeoutId);
 
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(result.error || `Server error: ${response.status}`);
       }
@@ -150,29 +143,29 @@ class AIAnalysisService {
         confidence: result.confidence,
         is_issue: result.is_issue,
         probabilities: result.probabilities,
-        timestamp: result.timestamp
+        timestamp: result.timestamp,
       };
 
       return transformedResult;
     } catch (error) {
-      console.error('❌ Issue detection analysis failed:', error);
-      
+      console.error("❌ Issue detection analysis failed:", error);
+
       if (error instanceof Error) {
-        if (error.name === 'AbortError') {
+        if (error.name === "AbortError") {
           return {
             success: false,
-            error: 'Request timeout - server took too long to respond'
+            error: "Request timeout - server took too long to respond",
           };
         }
         return {
           success: false,
-          error: error.message
+          error: error.message,
         };
       }
-      
+
       return {
         success: false,
-        error: 'Unknown error occurred during analysis'
+        error: "Unknown error occurred during analysis",
       };
     }
   }
@@ -206,7 +199,7 @@ class AIAnalysisService {
     }
 
     const issueDetection = analysis.predictions.issue_detection;
-    
+
     if (!issueDetection.is_issue) {
       return "The image doesn't appear to show a civic issue. Please upload an image that clearly shows the problem you want to report.";
     }
@@ -235,55 +228,51 @@ class AIAnalysisService {
    */
   isAnalysisReliable(analysis: IssueDetectionResult): boolean {
     if (!analysis.success) return false;
-    
+
     // Issue detection should be confident
     if (!analysis.confidence || analysis.confidence < 0.6) return false;
-    
+
     return true;
   }
-
-  /**
-   * Get server configuration for development
-   */
   getServerUrl(): string {
     return this.baseUrl;
   }
 
-  /**
-   * Set custom server URL (useful for development)
-   */
   setServerUrl(url: string): void {
     this.baseUrl = url;
   }
 
-  /**
-   * Test connection to Flask server
-   */
-  async testConnection(): Promise<{ connected: boolean; error?: string; issueModel?: boolean }> {
+  async testConnection(): Promise<{
+    connected: boolean;
+    error?: string;
+    issueModel?: boolean;
+  }> {
     try {
       const status = await this.checkServerStatus();
-      
+
       if (!status) {
         return {
           connected: false,
-          error: 'Unable to connect to AI server'
+          error: "Unable to connect to AI server",
         };
       }
 
       // Handle both possible server response formats
-      const issueModelLoaded = status.model?.issue_detection?.loaded || 
-                               (status as any).api_status === 'running' ||
-                               true; // Assume loaded if status is returned
+      const issueModelLoaded =
+        status.model?.issue_detection?.loaded ||
+        (status as any).api_status === "running" ||
+        true; // Assume loaded if status is returned
 
       return {
         connected: true,
-        issueModel: issueModelLoaded
+        issueModel: issueModelLoaded,
       };
     } catch (error) {
-      console.error('Connection test failed:', error);
+      console.error("Connection test failed:", error);
       return {
         connected: false,
-        error: error instanceof Error ? error.message : 'Unknown connection error'
+        error:
+          error instanceof Error ? error.message : "Unknown connection error",
       };
     }
   }
@@ -294,11 +283,11 @@ class AIAnalysisService {
   async analyzeComplete(imageUri: string): Promise<CompleteAnalysisResult> {
     try {
       const issueResult = await this.analyzeIssueDetection(imageUri);
-      
+
       if (!issueResult.success) {
         return {
           success: false,
-          error: issueResult.error
+          error: issueResult.error,
         };
       }
 
@@ -308,13 +297,13 @@ class AIAnalysisService {
           issue_detection: issueResult,
           // Category classification could be added here if available
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      console.error('❌ Complete analysis failed:', error);
+      console.error("❌ Complete analysis failed:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Analysis failed'
+        error: error instanceof Error ? error.message : "Analysis failed",
       };
     }
   }
@@ -324,25 +313,28 @@ class AIAnalysisService {
    */
   mapAICategoryToFormCategory(aiCategory: string): string {
     const categoryMap: Record<string, string> = {
-      'road_damage': 'Roads',
-      'water_issue': 'Water Supply',
-      'waste_management': 'Waste Management',
-      'infrastructure': 'Infrastructure',
-      'lighting': 'Street Lighting',
-      'drainage': 'Drainage'
+      road_damage: "Roads",
+      water_issue: "Water Supply",
+      waste_management: "Waste Management",
+      infrastructure: "Infrastructure",
+      lighting: "Street Lighting",
+      drainage: "Drainage",
     };
-    
-    return categoryMap[aiCategory.toLowerCase()] || 'Other';
+
+    return categoryMap[aiCategory.toLowerCase()] || "Other";
   }
-
-
 }
 
 // Export singleton instance
 export const aiAnalysisService = new AIAnalysisService();
 
 // Export types for use in components
-export type { IssueDetectionResult, ServerStatus, CompleteAnalysisResult, CategoryClassificationResult };
+export type {
+  IssueDetectionResult,
+  ServerStatus,
+  CompleteAnalysisResult,
+  CategoryClassificationResult,
+};
 
 // Export utility functions
 export const AIUtils = {
@@ -357,9 +349,9 @@ export const AIUtils = {
    * Get color for confidence level
    */
   getConfidenceColor: (confidence: number): string => {
-    if (confidence >= 0.8) return '#16a34a'; // Green
-    if (confidence >= 0.6) return '#ca8a04'; // Yellow
-    return '#dc2626'; // Red
+    if (confidence >= 0.8) return "#16a34a"; // Green
+    if (confidence >= 0.6) return "#ca8a04"; // Yellow
+    return "#dc2626"; // Red
   },
 
   /**
@@ -373,15 +365,19 @@ export const AIUtils = {
   /**
    * Generate issue priority suggestion based on analysis
    */
-  suggestPriority: (analysis: CompleteAnalysisResult | IssueDetectionResult): 'low' | 'medium' | 'high' | 'urgent' => {
+  suggestPriority: (
+    analysis: CompleteAnalysisResult | IssueDetectionResult
+  ): "low" | "medium" | "high" | "urgent" => {
     // Type guard to check if it's a CompleteAnalysisResult
-    const isCompleteResult = (result: any): result is CompleteAnalysisResult => {
-      return 'predictions' in result;
+    const isCompleteResult = (
+      result: any
+    ): result is CompleteAnalysisResult => {
+      return "predictions" in result;
     };
-    
+
     let confidence = 0;
     let success = false;
-    
+
     if (isCompleteResult(analysis)) {
       // CompleteAnalysisResult
       success = analysis.success && !!analysis.predictions;
@@ -392,11 +388,11 @@ export const AIUtils = {
       success = issueResult.success;
       confidence = issueResult.confidence || 0;
     }
-    
-    if (!success) return 'medium';
-    
-    if (confidence >= 0.9) return 'high';
-    if (confidence >= 0.7) return 'medium';
-    return 'low';
-  }
+
+    if (!success) return "medium";
+
+    if (confidence >= 0.9) return "high";
+    if (confidence >= 0.7) return "medium";
+    return "low";
+  },
 };

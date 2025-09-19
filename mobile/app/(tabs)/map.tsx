@@ -208,7 +208,7 @@ export default function MapViewPage() {
   const handleWebViewMessage = (event: any) => {
     const issueId = event.nativeEvent.data
     if (issueId) {
-      router.push(`/(civic)/issues/${issueId}`)
+      router.push(`/(issues)/${issueId}`)
     }
   }
 
@@ -228,7 +228,7 @@ export default function MapViewPage() {
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Issues Map</Text>
-        <TouchableOpacity onPress={() => router.push('/(civic)/report')}>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/create')}>
           <Ionicons name="add" size={24} color="white" />
         </TouchableOpacity>
       </View>

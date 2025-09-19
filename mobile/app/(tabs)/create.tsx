@@ -26,16 +26,12 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useNotificationContext } from "../components/NotificationProvider";
 import {
-  aiAnalysisService,
-  AIUtils,
-  type CompleteAnalysisResult,
+  aiAnalysisService
 } from "../services/aiAnalysisService";
 
 // Import from constants
 import {
-  CATEGORIES,
-  getCategoryDepartment,
-  getCategoryInfo,
+  CATEGORIES, getCategoryInfo
 } from "../constants/categories";
 
 const jharkhandCities = [
@@ -316,6 +312,26 @@ export default function EnhancedReportIssuePage() {
     }
   };
 
+  // Function to determine priority based on AI confidence
+  const getPriorityFromConfidence = (
+    confidence: number
+  ): "low" | "medium" | "high" | "urgent" => {
+    console.log("🎯 AI Confidence received:", confidence);
+
+    if (confidence >= 0.1 && confidence <= 0.4) {
+      console.log("🔽 Setting priority to LOW");
+      return "low";
+    } else if (confidence > 0.4 && confidence <= 0.5) {
+      console.log("🔄 Setting priority to MEDIUM");
+      return "medium";
+    } else if (confidence > 0.5) {
+      console.log("🔥 Setting priority to HIGH");
+      return "high";
+    }
+    console.log("⚠️ Using default MEDIUM priority");
+    return "medium"; // default fallback
+  };
+
   const analyzeImageWithAI = async (imageUri: string) => {
     if (!serverConnected) {
       console.log("⚠️ Skipping AI analysis - server not connected");
@@ -384,40 +400,57 @@ export default function EnhancedReportIssuePage() {
         // Analyze with AI
         const aiAnalysis = await analyzeImageWithAI(result.assets[0].uri);
 
-        if (aiAnalysis && aiAnalysis.isIssue && aiAnalysis.category) {
-          // Auto-fill form with AI suggestions
-          setFormData((prev) => ({
-            ...prev,
-            category: aiAnalysis.category || prev.category,
-            description: prev.description || aiAnalysis.suggestions || "",
-            priority:
-              prev.priority === "medium"
-                ? AIUtils.suggestPriority({
-                    success: true,
-                    predictions: {
-                      issue_detection: {
-                        success: true,
-                        is_issue: aiAnalysis.isIssue,
-                        confidence: aiAnalysis.confidence,
-                        predicted_class: "",
-                        probabilities: {
-                          issue: aiAnalysis.confidence!,
-                          no_issue: aiAnalysis.confidence!,
-                        },
-                      },
-                      category_classification: {
-                        predicted_class: aiAnalysis.category || "",
-                        confidence: aiAnalysis.categoryConfidence || 0,
-                        top_3_predictions: [],
-                        all_probabilities: {},
-                      },
-                    },
-                  })
-                : prev.priority,
-          }));
+        if (aiAnalysis) {
+          console.log("🔍 AI Analysis Result:", {
+            isIssue: aiAnalysis.isIssue,
+            confidence: aiAnalysis.confidence,
+            category: aiAnalysis.category,
+          });
+
+          if (aiAnalysis.isIssue && aiAnalysis.category) {
+            // Auto-fill form with AI suggestions for valid issues
+            const newPriority = getPriorityFromConfidence(
+              aiAnalysis.confidence!
+            );
+            console.log("📝 Updating form with:", {
+              category: aiAnalysis.category,
+              priority: newPriority,
+              confidence: aiAnalysis.confidence,
+            });
+
+            setFormData((prev) => {
+              const updated = {
+                ...prev,
+                category: aiAnalysis.category || prev.category,
+                description: prev.description || aiAnalysis.suggestions || "",
+                priority: newPriority,
+              };
+              console.log("✅ Form updated. New priority:", updated.priority);
+              return updated;
+            });
+          } else if (!aiAnalysis.isIssue && aiAnalysis.confidence! > 0.6) {
+            // Show alert for non-issue images with high confidence
+            Alert.alert(
+              "No Civic Issue Detected",
+              `Our AI analysis (${Math.round(aiAnalysis.confidence! * 100)}% confidence) suggests this image may not show a civic issue. Please upload a clearer image that shows the problem, or remove this image.`,
+              [
+                {
+                  text: "Remove Image",
+                  onPress: () => {
+                    setImages((prev) =>
+                      prev.filter((img) => img.uri !== newImage.uri)
+                    );
+                  },
+                },
+                {
+                  text: "Keep Image",
+                  style: "cancel",
+                },
+              ]
+            );
+          }
         }
 
-        // Update image with analysis results
         setImages((prev: any) =>
           prev.map((img: any) =>
             img.uri === newImage.uri
@@ -431,19 +464,7 @@ export default function EnhancedReportIssuePage() {
           )
         );
 
-        // Show warning if no issue detected with high confidence
-        if (aiAnalysis && !aiAnalysis.isIssue && aiAnalysis.confidence! > 0.8) {
-          Alert.alert(
-            "No Issue Detected",
-            "Our AI analysis suggests this image may not show a civic issue. Please upload a clearer image that shows the problem.",
-            [
-              {
-                text: "Remove Image",
-                onPress: () => removeImage(images.length),
-              },
-            ]
-          );
-        }
+        // Note: Alert for no-issue detection is now handled above in the AI analysis result processing
       } catch (error) {
         console.error("Error processing image:", error);
         // Update image even if analysis fails
@@ -656,8 +677,9 @@ export default function EnhancedReportIssuePage() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
+          {/* Title Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Issue Details</Text>
+            <Text style={styles.sectionTitle}>Issue Title</Text>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Issue Title *</Text>
               <TextInput
@@ -670,55 +692,9 @@ export default function EnhancedReportIssuePage() {
                 placeholderTextColor="#9ca3af"
               />
             </View>
-
-            <DropdownSelect
-              label="Category *"
-              options={CATEGORIES}
-              selectedValue={formData.category}
-              onValueChange={(value: string) =>
-                setFormData({ ...formData, category: value })
-              }
-              placeholder="Select a category"
-              aiSuggestion={hasAISuggestions}
-            />
-
-            <DropdownSelect
-              label="Priority Level"
-              options={PRIORITY_LEVELS}
-              selectedValue={formData.priority}
-              onValueChange={(value: any) =>
-                setFormData({ ...formData, priority: value })
-              }
-              placeholder="Select a priority level"
-            />
-
-            <View style={styles.inputGroup}>
-              <View style={styles.labelContainer}>
-                <Text style={styles.label}>Description *</Text>
-                {hasAISuggestions && (
-                  <View style={styles.aiSuggestionBadge}>
-                    <Ionicons name="sparkles" size={12} color="#8b5cf6" />
-                    <Text style={styles.aiSuggestionText}>AI Enhanced</Text>
-                  </View>
-                )}
-              </View>
-              <TextInput
-                style={[
-                  styles.input,
-                  styles.textArea,
-                  hasAISuggestions && styles.inputAIEnhanced,
-                ]}
-                value={formData.description}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, description: text })
-                }
-                placeholder="Provide details about the issue..."
-                placeholderTextColor="#9ca3af"
-                multiline
-              />
-            </View>
           </View>
 
+          {/* Images Section */}
           <View style={styles.section}>
             <View
               style={{
@@ -789,6 +765,69 @@ export default function EnhancedReportIssuePage() {
                   <Text style={styles.addImageText}>Add Photo</Text>
                 </TouchableOpacity>
               )}
+            </View>
+          </View>
+
+          {/* Category and Priority Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Issue Details</Text>
+
+            <DropdownSelect
+              label="Category *"
+              options={CATEGORIES}
+              selectedValue={formData.category}
+              onValueChange={(value: string) =>
+                setFormData({ ...formData, category: value })
+              }
+              placeholder="Select a category"
+              aiSuggestion={hasAISuggestions}
+            />
+
+            <View style={styles.inputGroup}>
+              <View style={styles.labelContainer}>
+                <Text style={styles.label}>Priority Level</Text>
+                <View style={styles.aiSuggestionBadge}>
+                  <Ionicons name="sparkles" size={12} color="#8b5cf6" />
+                  <Text style={styles.aiSuggestionText}>AI Auto-Set</Text>
+                </View>
+              </View>
+              <View style={[styles.dropdownButton, styles.disabledDropdown]}>
+                <Text style={styles.dropdownButtonText}>
+                  {PRIORITY_LEVELS.find((p) => p.value === formData.priority)
+                    ?.label || formData.priority.toUpperCase()}
+                </Text>
+                <Ionicons name="lock-closed" size={20} color="#8b5cf6" />
+              </View>
+            </View>
+          </View>
+
+          {/* Description Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Description</Text>
+            <View style={styles.inputGroup}>
+              <View style={styles.labelContainer}>
+                <Text style={styles.label}>Description *</Text>
+                {hasAISuggestions && (
+                  <View style={styles.aiSuggestionBadge}>
+                    <Ionicons name="sparkles" size={12} color="#8b5cf6" />
+                    <Text style={styles.aiSuggestionText}>AI Enhanced</Text>
+                  </View>
+                )}
+              </View>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  hasAISuggestions && styles.inputAIEnhanced,
+                ]}
+                value={formData.description}
+                onChangeText={(text) =>
+                  setFormData({ ...formData, description: text })
+                }
+                placeholder="Provide details about the issue..."
+                placeholderTextColor="#9ca3af"
+                multiline
+              />
             </View>
           </View>
 
@@ -1261,6 +1300,17 @@ const styles = StyleSheet.create({
   dropdownButtonAISuggested: {
     borderColor: "#8b5cf6",
     backgroundColor: "#faf5ff",
+  },
+  disabledDropdown: {
+    backgroundColor: "#f3f4f6",
+    borderColor: "#d1d5db",
+    opacity: 0.7,
+  },
+  aiAutoSetText: {
+    fontSize: 12,
+    color: "#8b5cf6",
+    marginTop: 6,
+    fontStyle: "italic",
   },
   dropdownButtonText: {
     fontSize: 16,

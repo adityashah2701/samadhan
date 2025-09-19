@@ -64,11 +64,11 @@ export function useNotifications() {
       
       // Navigate to relevant screen based on notification data
       if (data?.issueId) {
-        router.push(`/(civic)/issues/${data.issueId}` as any);
+        router.push(`/(issues)/${data.issueId}` as any);
       } else if (data?.screen) {
         router.push(data.screen as any);
       } else {
-        router.push('/(civic)/notifications');
+        router.push('/(notifications)/notifications');
       }
     });
 

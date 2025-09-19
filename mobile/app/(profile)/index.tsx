@@ -277,7 +277,7 @@ export default function ProfilePage() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           
-          <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/(civic)/track')}>
+          <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/(tabs)/track')}>
             <View style={styles.actionInfo}>
               <Ionicons name="list" size={20} color="#16a34a" />
               <Text style={styles.actionTitle}>My Issues</Text>
