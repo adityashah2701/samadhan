@@ -155,3 +155,11 @@ export const getActiveDepartments = query({
       .collect();
   },
 });
+
+// Get department by ID
+export const getDepartmentById = query({
+  args: { id: v.id("departments") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});

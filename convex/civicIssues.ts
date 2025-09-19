@@ -529,15 +529,3 @@ export const getIssueStats = query({
   },
 });
 
-// Increment view count
-export const incrementViewCount = mutation({
-  args: { issueId: v.id("civicIssues") },
-  handler: async (ctx, args) => {
-    const issue = await ctx.db.get(args.issueId);
-    if (!issue) return;
-
-    await ctx.db.patch(args.issueId, {
-      viewCount: issue.viewCount + 1,
-    });
-  },
-});

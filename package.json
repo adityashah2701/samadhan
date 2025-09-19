@@ -19,6 +19,10 @@
   },
   "homepage": "https://github.com/adityashah2701/Samadhan#readme",
   "dependencies": {
-    "convex": "^1.27.0"
+    "convex": "^1.27.0",
+    "resend": "^6.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2"
   }
 }

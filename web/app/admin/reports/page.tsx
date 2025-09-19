@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { useState, useMemo } from "react";
@@ -48,8 +48,31 @@ import {
   XCircle,
   MapPin,
   User,
+  Mail,
+  Send,
+  MailCheck,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type ReportType = "issues" | "users" | "departments" | "analytics" | "custom";
 type TimeRange = "7d" | "30d" | "90d" | "1y" | "all";
@@ -77,14 +100,33 @@ interface GeneratedReport {
   recordCount?: number;
 }
 
+interface EmailResult {
+  department: string;
+  email: string;
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
+
 export default function ReportsPage() {
   const { user } = useUser();
   const [selectedReportType, setSelectedReportType] = useState<ReportType>("issues");
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
   const [exportFormat, setExportFormat] = useState<ExportFormat>("csv");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [generatedReports, setGeneratedReports] = useState<GeneratedReport[]>([]);
+  const [emailResults, setEmailResults] = useState<EmailResult[]>([]);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [showEmailResults, setShowEmailResults] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+
+  // Email actions
+  const sendReportToAllDepartments = useAction(api.emails.sendReportToAllDepartments);
+  const sendReportToDepartment = useAction(api.emails.sendReportToDepartment);
+  const sendReportEmail = useAction(api.emails.sendReportEmail);
 
   // Data queries
   const issues = useQuery(api.civicIssues.getIssues, { limit: 1000 });
@@ -409,6 +451,98 @@ export default function ReportsPage() {
     }
   };
 
+  // Email report functions
+  const handleEmailReport = (template: ReportTemplate) => {
+    setSelectedTemplate(template);
+    setShowEmailDialog(true);
+  };
+
+  const confirmEmailSend = async () => {
+    if (!selectedTemplate || !reportData) {
+      toast.error("Missing required data for email send");
+      return;
+    }
+    
+    if (!currentAdminUser) {
+      toast.error("Admin user not loaded. Please refresh the page.");
+      return;
+    }
+    
+    setIsSendingEmail(true);
+    setShowEmailDialog(false);
+    
+    try {
+      // Generate report data
+      const data = generateReportData(selectedTemplate);
+      
+      if (!data || data.length === 0) {
+        toast.error("No data available for the selected time range");
+        return;
+      }
+
+      // Convert data to the selected format
+      let reportContent = "";
+      switch (exportFormat) {
+        case "csv":
+          reportContent = convertToCSV(data);
+          break;
+        case "json":
+          reportContent = convertToJSON(data, selectedTemplate);
+          break;
+        default:
+          reportContent = convertToCSV(data);
+      }
+
+      let result;
+      
+      if (selectedDepartment === "all") {
+        // Send to all departments
+        result = await sendReportToAllDepartments({
+          reportData: reportContent,
+          reportName: selectedTemplate.name,
+          reportFormat: exportFormat,
+          timeRange: timeRange,
+          recordCount: data.length,
+          adminEmail: "adityashah2701@gmail.com", // Using your email for free tier
+        });
+        
+        toast.success(`Report sent to ${result.successfulSends} departments successfully!`);
+        
+        if (result.failedSends > 0) {
+          toast.error(`Failed to send to ${result.failedSends} departments`);
+        }
+        
+        setEmailResults(result.results || []);
+      } else {
+        // Send to specific department
+        result = await sendReportToDepartment({
+          departmentId: selectedDepartment as any,
+          reportData: reportContent,
+          reportName: selectedTemplate.name,
+          reportFormat: exportFormat,
+          timeRange: timeRange,
+          recordCount: data.length,
+        });
+        
+        if (result.success) {
+          toast.success(`Report sent to ${result.department} successfully!`);
+        } else {
+          toast.error(`Failed to send report: ${result.error}`);
+        }
+        
+        setEmailResults([result]);
+      }
+      
+      setShowEmailResults(true);
+      
+    } catch (error) {
+      toast.error("Failed to send email report");
+      console.error("Email send error:", error);
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   // Generate preview data for display
   const generatePreviewData = (template: ReportTemplate) => {
     const data = generateReportData(template);
@@ -635,24 +769,46 @@ export default function ReportsPage() {
                       )}
 
                       <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => generateReport(template)}
-                          disabled={isGenerating || !previewData.length}
-                          className="flex-1"
-                        >
-                          {isGenerating ? (
-                            <>
-                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2" />
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <Download className="h-3 w-3 mr-2" />
-                              Generate ({exportFormat.toUpperCase()})
-                            </>
-                          )}
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => generateReport(template)}
+                            disabled={isGenerating || !previewData.length || isSendingEmail}
+                            className="flex-1"
+                          >
+                            {isGenerating ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="h-3 w-3 mr-2" />
+                                Download
+                              </>
+                            )}
+                          </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEmailReport(template)}
+                            disabled={isGenerating || !previewData.length || isSendingEmail || !currentAdminUser}
+                            className="flex-1"
+                          >
+                            {isSendingEmail ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                                Sending...
+                              </>
+                            ) : (
+                              <>
+                                <Mail className="h-3 w-3 mr-2" />
+                                Email
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -725,6 +881,137 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Email Confirmation Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>📧 Email Report to Departments</DialogTitle>
+            <DialogDescription>
+              Send "{selectedTemplate?.name}" report to department email addresses.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Select Recipients</label>
+              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose departments" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      All Departments ({departments?.filter(d => d.isActive && d.contactEmail).length || 0})
+                    </div>
+                  </SelectItem>
+                  {departments?.filter(d => d.isActive && d.contactEmail).map(dept => (
+                    <SelectItem key={dept._id} value={dept._id}>
+                      <div className="flex items-center gap-2">
+                        <Building className="h-4 w-4" />
+                        {dept.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="bg-muted/30 rounded-lg p-3">
+              <h4 className="text-sm font-medium mb-2">Report Details</h4>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div>📊 Format: {exportFormat.toUpperCase()}</div>
+                <div>📅 Time Range: {timeRange}</div>
+                <div>📈 Records: {selectedTemplate ? generatePreviewData(selectedTemplate).length : 0}</div>
+              </div>
+            </div>
+            
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-3">
+              <div className="text-xs text-blue-700">
+                <strong>📝 Note:</strong> For the free tier, emails will be sent to your verified email address: adityashah2701@gmail.com
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEmailDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmEmailSend} disabled={isSendingEmail || !currentAdminUser}>
+              {isSendingEmail ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Email
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Results Dialog */}
+      <AlertDialog open={showEmailResults} onOpenChange={setShowEmailResults}>
+        <AlertDialogContent className="sm:max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>📧 Email Report Results</AlertDialogTitle>
+            <AlertDialogDescription>
+              Here are the results of sending the report to departments:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="max-h-60 overflow-y-auto">
+            <div className="space-y-2">
+              {emailResults.map((result, index) => (
+                <div
+                  key={index}
+                  className={`flex items-center justify-between p-3 rounded-lg border ${
+                    result.success 
+                      ? 'bg-green-50 border-green-200' 
+                      : 'bg-red-50 border-red-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {result.success ? (
+                      <MailCheck className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-600" />
+                    )}
+                    <div>
+                      <div className="font-medium text-black text-sm">{result.department}</div>
+                      <div className="text-xs text-muted-foreground">{result.email}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    {result.success ? (
+                      <Badge className="bg-green-100 text-green-800">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Sent
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive">
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Failed
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowEmailResults(false)}>
+              Close
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
