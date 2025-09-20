@@ -478,7 +478,6 @@ export default function EnhancedReportIssuePage() {
             setFormData((prev) => ({
               ...prev,
               category: aiAnalysis.category || prev.category,
-              description: prev.description || aiAnalysis.suggestions || "",
               priority: newPriority,
             }));
           } else if (!aiAnalysis.isIssue && aiAnalysis.confidence > 0.6) {
@@ -801,7 +800,7 @@ export default function EnhancedReportIssuePage() {
 
               <View style={styles.aiSuggestionBadge}>
                 <Ionicons name="sparkles" size={12} color="#8b5cf6" />
-                <Text style={styles.aiSuggestionText}>AI Suggested</Text>
+                <Text style={styles.aiSuggestionText}>AI Verification</Text>
               </View>
             </View>
 
@@ -912,18 +911,12 @@ export default function EnhancedReportIssuePage() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>Description *</Text>
-                {hasAISuggestions && (
-                  <View style={styles.aiSuggestionBadge}>
-                    <Ionicons name="sparkles" size={12} color="#8b5cf6" />
-                    <Text style={styles.aiSuggestionText}>AI Enhanced</Text>
-                  </View>
-                )}
+
               </View>
               <TextInput
                 style={[
                   styles.input,
                   styles.textArea,
-                  hasAISuggestions && styles.inputAIEnhanced,
                 ]}
                 value={formData.description}
                 onChangeText={(text) =>

@@ -173,7 +173,7 @@ export default function HomePage() {
                 </View>
                 <View>
                   <Text style={styles.appName}>Samadhan</Text>
-                  <Text style={styles.tagline}>सेवा में, समाधान में</Text>
+                  <Text style={styles.tagline}>सेवा में, समाधान</Text>
                 </View>
               </View>
               <View style={styles.headerRight}>
