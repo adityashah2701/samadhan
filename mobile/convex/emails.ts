@@ -102,7 +102,7 @@ export const sendReportEmailSimple = action({
 });
 
 // Email action (wrapper)
-export const sendReportEmail = action({
+export const sendReportEmail:any = action({
   args: {
     to: v.string(),
     subject: v.string(),
@@ -119,7 +119,7 @@ export const sendReportEmail = action({
 });
 
 // Send to all departments (actually sends to verified email with department info)
-export const sendReportToAllDepartments = action({
+export const sendReportToAllDepartments:any = action({
   args: {
     reportData: v.string(),
     reportName: v.string(), 
@@ -151,7 +151,7 @@ export const sendReportToAllDepartments = action({
           email: "adityashah2701@gmail.com",
           success: result.success,
           messageId: result.messageId,
-          error: result.error
+
         });
       } catch (error) {
         results.push({
@@ -174,7 +174,7 @@ export const sendReportToAllDepartments = action({
 });
 
 // Send to specific department
-export const sendReportToDepartment = action({
+export const sendReportToDepartment:any = action({
   args: {
     departmentId: v.id("departments"),
     reportData: v.string(),
@@ -209,8 +209,7 @@ export const sendReportToDepartment = action({
         success: result.success,
         department: department.name,
         email: "adityashah2701@gmail.com",
-        messageId: result.messageId,
-        error: result.error
+        messageId: result.messageId
       };
     } catch (error) {
       return {
