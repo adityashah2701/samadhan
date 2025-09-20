@@ -35,6 +35,9 @@
         "backgroundColor": "#0f172a"
       },
       "package": "com.adityashah27.samadhan",
+      "compileSdkVersion": 34,
+      "targetSdkVersion": 34,
+      "minSdkVersion": 23,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
@@ -50,7 +53,8 @@
         "android.permission.VIBRATE",
         "android.permission.WAKE_LOCK",
         "android.permission.POST_NOTIFICATIONS"
-      ]
+      ],
+      "versionCode": 1
     },
     "web": {
       "output": "static",
@@ -99,15 +103,19 @@
           "image": "./assets/logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#0f172a",
-          "dark": {
-            "image": "./assets/logo.png",
-            "backgroundColor": "#0f172a"
-          }
+          "backgroundColor": "#0f172a"
         }
       ],
       "expo-secure-store",
-      "expo-web-browser"
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": false,
+            "enableShrinkResourcesInReleaseBuilds": false
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
