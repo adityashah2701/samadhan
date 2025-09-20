@@ -6,10 +6,7 @@ export default function NotificationsLayout() {
       <Stack.Screen 
         name="index" 
         options={{ 
-          title: 'Notifications',
-          headerStyle: { backgroundColor: '#16a34a' },
-          headerTintColor: '#fff',
-          headerTitleStyle: { fontWeight: 'bold' }
+         headerShown:false
         }} 
       />
     </Stack>

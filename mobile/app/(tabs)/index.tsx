@@ -179,7 +179,7 @@ export default function HomePage() {
               <View style={styles.headerRight}>
                 <TouchableOpacity
                   style={styles.headerButton}
-                  onPress={() => router.push("/(notifications)/notifications")}
+                  onPress={() => router.push("/(notifications)")}
                   activeOpacity={0.7}
                 >
                   <View style={styles.headerButtonBg}>
