@@ -1,8 +1,3 @@
-# ================================================================================
-# FLASK API FOR CIVIC ISSUE DETECTION ONLY
-# Updated server with only issue detection, category classification removed
-# ================================================================================
-
 from flask import Flask, request, jsonify, render_template_string
 from flask_cors import CORS
 import tensorflow as tf
@@ -13,9 +8,10 @@ import io
 import os
 from datetime import datetime
 import logging
-import os
-import logging
-import tensorflow as tf
+import cv2
+import tempfile
+from collections import Counter
+import math
 
 # Disable all GPU devices (forces CPU only)
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -42,6 +38,12 @@ MODELS_DIR = 'models/'
 
 # Image configuration
 IMG_SIZE = (224, 224)
+
+# Video configuration
+VIDEO_SAMPLE_RATE = 1  # Extract 1 frame per second
+MAX_VIDEO_SIZE = 50 * 1024 * 1024  # 50MB max video size
+SUPPORTED_VIDEO_FORMATS = {'mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm'}
+ISSUE_THRESHOLD = 0.6  # 60% of frames should indicate issue for positive result
 
 # Class names for issue detection only
 ISSUE_CLASS_NAMES = ['issue', 'no_issue']
@@ -119,7 +121,7 @@ def predict_issue(img_batch):
     try:
         if issue_model is None:
             return None
-            
+        
         if isinstance(issue_model, tf.lite.Interpreter):
             # TFLite prediction
             input_details = issue_model.get_input_details()
@@ -153,6 +155,125 @@ def predict_issue(img_batch):
     except Exception as e:
         logger.error(f"Error in issue prediction: {str(e)}")
         return None
+
+def extract_video_frames(video_path, sample_rate=VIDEO_SAMPLE_RATE):
+    """Extract frames from video at specified sample rate"""
+    try:
+        cap = cv2.VideoCapture(video_path)
+        
+        if not cap.isOpened():
+            return None, "Could not open video file"
+        
+        # Get video properties
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        duration = total_frames / fps if fps > 0 else 0
+        
+        logger.info(f"Video info - FPS: {fps}, Total frames: {total_frames}, Duration: {duration:.2f}s")
+        
+        frames = []
+        frame_count = 0
+        extracted_count = 0
+        
+        # Calculate frame interval based on sample rate
+        frame_interval = int(fps / sample_rate) if fps > sample_rate else 1
+        
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            # Extract frame at specified intervals
+            if frame_count % frame_interval == 0:
+                # Convert BGR to RGB
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                pil_image = Image.fromarray(rgb_frame)
+                frames.append(pil_image)
+                extracted_count += 1
+            
+            frame_count += 1
+        
+        cap.release()
+        
+        logger.info(f"Extracted {extracted_count} frames from {total_frames} total frames")
+        
+        return frames, None
+        
+    except Exception as e:
+        return None, f"Error extracting frames: {str(e)}"
+
+def analyze_video_frames(frames):
+    """Analyze multiple frames and determine overall result"""
+    try:
+        if not frames:
+            return None, "No frames to analyze"
+        
+        frame_results = []
+        issue_count = 0
+        
+        logger.info(f"Analyzing {len(frames)} frames...")
+        
+        for i, frame in enumerate(frames):
+            # Preprocess frame
+            img_batch = preprocess_image_for_issue(frame)
+            if img_batch is None:
+                continue
+            
+            # Predict
+            prediction = predict_issue(img_batch)
+            if prediction is None:
+                continue
+            
+            frame_results.append({
+                'frame_number': i + 1,
+                'predicted_class': prediction['predicted_class'],
+                'confidence': prediction['confidence'],
+                'is_issue': prediction['is_issue']
+            })
+            
+            if prediction['is_issue']:
+                issue_count += 1
+        
+        if not frame_results:
+            return None, "No valid frame predictions"
+        
+        # Calculate overall statistics
+        total_analyzed = len(frame_results)
+        issue_percentage = (issue_count / total_analyzed) * 100
+        
+        # Determine overall result based on threshold
+        overall_is_issue = issue_percentage >= (ISSUE_THRESHOLD * 100)
+        
+        # Calculate average confidence for frames that detected issues
+        issue_frames = [f for f in frame_results if f['is_issue']]
+        avg_issue_confidence = np.mean([f['confidence'] for f in issue_frames]) if issue_frames else 0
+        
+        # Calculate average confidence for frames that detected no issues
+        no_issue_frames = [f for f in frame_results if not f['is_issue']]
+        avg_no_issue_confidence = np.mean([f['confidence'] for f in no_issue_frames]) if no_issue_frames else 0
+        
+        result = {
+            'overall_result': {
+                'is_issue': overall_is_issue,
+                'predicted_class': 'issue' if overall_is_issue else 'no_issue',
+                'confidence': avg_issue_confidence if overall_is_issue else avg_no_issue_confidence
+            },
+            'statistics': {
+                'total_frames_analyzed': total_analyzed,
+                'frames_with_issues': issue_count,
+                'frames_without_issues': total_analyzed - issue_count,
+                'issue_percentage': round(issue_percentage, 2),
+                'threshold_used': ISSUE_THRESHOLD * 100
+            },
+            'frame_details': frame_results
+        }
+        
+        logger.info(f"Video analysis complete: {issue_percentage:.1f}% frames show issues")
+        
+        return result, None
+        
+    except Exception as e:
+        return None, f"Error analyzing frames: {str(e)}"
 
 def process_image_input(request_data, is_file_upload=True):
     """Process image input from request (file upload or base64)"""
@@ -199,6 +320,30 @@ def process_image_input(request_data, is_file_upload=True):
     except Exception as e:
         return None, f'Error processing image: {str(e)}'
 
+def process_video_input(request):
+    """Process video input from request"""
+    try:
+        if 'video' not in request.files:
+            return None, 'No video file provided'
+        
+        file = request.files['video']
+        if file.filename == '':
+            return None, 'No video file selected'
+        
+        # Validate file type
+        file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        if file_ext not in SUPPORTED_VIDEO_FORMATS:
+            return None, f'Invalid video format. Supported: {", ".join(SUPPORTED_VIDEO_FORMATS)}'
+        
+        # Create temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f'.{file_ext}')
+        file.save(temp_file.name)
+        
+        return {'temp_path': temp_file.name, 'filename': file.filename}, None
+        
+    except Exception as e:
+        return None, f'Error processing video: {str(e)}'
+
 # ================================================================================
 # API ROUTES
 # ================================================================================
@@ -208,65 +353,97 @@ def home():
     """Home page with API documentation"""
     
     html_template = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Civic Issue Detection API</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-            .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
-            .endpoint { background: #ecf0f1; padding: 15px; margin: 10px 0; border-radius: 5px; }
-            .method { background: #27ae60; color: white; padding: 3px 8px; border-radius: 3px; font-size: 12px; }
-            .method.post { background: #e74c3c; }
-            code { background: #2c3e50; color: #ecf0f1; padding: 2px 6px; border-radius: 3px; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🏛️ Civic Issue Detection API</h1>
-            
-            <div class="status">
-                <h3>📊 Model Status</h3>
-                <p><strong>Issue Detection:</strong> {{ '✅ Loaded' if issue_loaded else '❌ Not Loaded' }}</p>
-            </div>
-            
-            <h2>🔗 API Endpoints</h2>
-            
-            <div class="endpoint">
-                <span class="method">GET</span> <code>/</code>
-                <p>API documentation (this page)</p>
-            </div>
-            
-            <div class="endpoint">
-                <span class="method">GET</span> <code>/status</code>
-                <p>Check API and model status</p>
-            </div>
-            
-            <div class="endpoint">
-                <span class="method post">POST</span> <code>/predict/issue</code>
-                <p>Detect if image contains civic issues (file upload)</p>
-            </div>
-            
-            <div class="endpoint">
-                <span class="method post">POST</span> <code>/predict/issue-base64</code>
-                <p>Issue detection with base64 encoded image</p>
-            </div>
-            
-            <h2>🧪 Test the API</h2>
-            <form action="/predict/issue" method="post" enctype="multipart/form-data">
-                <input type="file" name="image" accept="image/*" required>
-                <br><br>
-                <button type="submit">Upload & Analyze Image</button>
-            </form>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Civic Issue Detection API - Images & Videos</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        .endpoint { background: #ecf0f1; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .method { background: #27ae60; color: white; padding: 3px 8px; border-radius: 3px; font-size: 12px; }
+        .method.post { background: #e74c3c; }
+        code { background: #2c3e50; color: #ecf0f1; padding: 2px 6px; border-radius: 3px; }
+        .new-feature { background: #f39c12; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; }
+        .config { background: #e8f4fd; padding: 15px; border-left: 4px solid #3498db; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏛️ Civic Issue Detection API</h1>
+        <p><span class="new-feature">NEW</span> Now supports both images and videos!</p>
+        
+        <div class="status">
+            <h3>📊 Model Status</h3>
+            <p><strong>Issue Detection:</strong> {{ '✅ Loaded' if issue_loaded else '❌ Not Loaded' }}</p>
         </div>
-    </body>
-    </html>
+        
+        <div class="config">
+            <h3>⚙️ Video Processing Configuration</h3>
+            <ul>
+                <li><strong>Sample Rate:</strong> {{ sample_rate }} frame(s) per second</li>
+                <li><strong>Issue Threshold:</strong> {{ threshold }}% of frames must show issues</li>
+                <li><strong>Supported Formats:</strong> {{ video_formats }}</li>
+                <li><strong>Max Video Size:</strong> {{ max_size }}MB</li>
+                <li><strong>Min Frames:</strong> No minimum - analyzes any number of frames</li>
+            </ul>
+        </div>
+        
+        <h2>🔗 API Endpoints</h2>
+        
+        <div class="endpoint">
+            <span class="method">GET</span> <code>/</code>
+            <p>API documentation (this page)</p>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method">GET</span> <code>/status</code>
+            <p>Check API and model status</p>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method post">POST</span> <code>/predict/issue</code>
+            <p>Detect civic issues in images (file upload)</p>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method post">POST</span> <code>/predict/issue-base64</code>
+            <p>Issue detection with base64 encoded image</p>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method post">POST</span> <code>/predict/video</code> <span class="new-feature">NEW</span>
+            <p>Detect civic issues in videos by analyzing frames</p>
+        </div>
+        
+        <h2>🧪 Test the API</h2>
+        
+        <h3>📷 Test Image Analysis</h3>
+        <form action="/predict/issue" method="post" enctype="multipart/form-data">
+            <input type="file" name="image" accept="image/*" required>
+            <br><br>
+            <button type="submit">Upload & Analyze Image</button>
+        </form>
+        
+        <h3>🎥 Test Video Analysis</h3>
+        <form action="/predict/video" method="post" enctype="multipart/form-data">
+            <input type="file" name="video" accept="video/*" required>
+            <br><br>
+            <button type="submit">Upload & Analyze Video</button>
+        </form>
+    </div>
+</body>
+</html>
     """
     
     return render_template_string(
         html_template,
-        issue_loaded=issue_model_loaded
+        issue_loaded=issue_model_loaded,
+        sample_rate=VIDEO_SAMPLE_RATE,
+        threshold=int(ISSUE_THRESHOLD * 100),
+        video_formats=', '.join(SUPPORTED_VIDEO_FORMATS),
+        max_size=MAX_VIDEO_SIZE // (1024 * 1024)
     )
 
 @app.route('/status')
@@ -280,9 +457,17 @@ def status():
                 'classes': ISSUE_CLASS_NAMES
             }
         },
+        'video_config': {
+            'sample_rate': VIDEO_SAMPLE_RATE,
+            'issue_threshold': ISSUE_THRESHOLD,
+            'supported_formats': list(SUPPORTED_VIDEO_FORMATS),
+            'max_size_mb': MAX_VIDEO_SIZE // (1024 * 1024),
+            'min_frames_required': 'none'
+        },
         'endpoints': [
             '/predict/issue',
-            '/predict/issue-base64'
+            '/predict/issue-base64',
+            '/predict/video'
         ],
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     })
@@ -330,12 +515,12 @@ def predict_issue_endpoint():
         response = {
             'success': True,
             'filename': image_data['filename'],
-            'prediction_type': 'issue_detection',
+            'prediction_type': 'image_issue_detection',
             **prediction,
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         
-        logger.info(f"Issue prediction: {prediction['predicted_class']} ({prediction['confidence']:.1%})")
+        logger.info(f"Image prediction: {prediction['predicted_class']} ({prediction['confidence']:.1%})")
         return jsonify(response)
         
     except Exception as e:
@@ -387,7 +572,7 @@ def predict_issue_base64():
         
         return jsonify({
             'success': True,
-            'prediction_type': 'issue_detection',
+            'prediction_type': 'image_issue_detection_base64',
             **prediction,
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         })
@@ -399,6 +584,85 @@ def predict_issue_base64():
             'error': f'Internal server error: {str(e)}',
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }), 500
+
+@app.route('/predict/video', methods=['POST'])
+def predict_video_endpoint():
+    """Video issue detection endpoint"""
+    
+    if not issue_model_loaded:
+        return jsonify({
+            'success': False,
+            'error': 'Issue detection model not loaded',
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }), 500
+    
+    temp_path = None
+    
+    try:
+        # Process video input
+        video_data, error = process_video_input(request)
+        if error:
+            return jsonify({
+                'success': False,
+                'error': error,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }), 400
+        
+        temp_path = video_data['temp_path']
+        filename = video_data['filename']
+        
+        logger.info(f"Processing video: {filename}")
+        
+        # Extract frames from video
+        frames, error = extract_video_frames(temp_path)
+        if error:
+            return jsonify({
+                'success': False,
+                'error': error,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }), 400
+        
+        # Analyze frames
+        analysis_result, error = analyze_video_frames(frames)
+        if error:
+            return jsonify({
+                'success': False,
+                'error': error,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }), 400
+        
+        # Prepare response
+        response = {
+            'success': True,
+            'filename': filename,
+            'prediction_type': 'video_issue_detection',
+            **analysis_result,
+            'processing_config': {
+                'sample_rate': VIDEO_SAMPLE_RATE,
+                'issue_threshold_percent': ISSUE_THRESHOLD * 100
+            },
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        logger.info(f"Video analysis complete: {analysis_result['overall_result']['predicted_class']}")
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error in video prediction endpoint: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Internal server error: {str(e)}',
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }), 500
+        
+    finally:
+        # Clean up temporary file
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+                logger.info("Temporary video file cleaned up")
+            except Exception as e:
+                logger.warning(f"Could not clean up temp file: {str(e)}")
 
 # ================================================================================
 # ERROR HANDLERS
@@ -413,7 +677,8 @@ def not_found(error):
             'GET /',
             'GET /status',
             'POST /predict/issue',
-            'POST /predict/issue-base64'
+            'POST /predict/issue-base64',
+            'POST /predict/video'
         ],
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }), 404
@@ -430,7 +695,7 @@ def internal_error(error):
 def request_entity_too_large(error):
     return jsonify({
         'success': False,
-        'error': 'File too large. Maximum size is 10MB.',
+        'error': f'File too large. Maximum size is {MAX_VIDEO_SIZE // (1024 * 1024)}MB for videos, 10MB for images.',
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }), 413
 
@@ -439,11 +704,11 @@ def request_entity_too_large(error):
 # ================================================================================
 
 if __name__ == '__main__':
-    # Set maximum file size (10MB)
-    app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
+    # Set maximum file size
+    app.config['MAX_CONTENT_LENGTH'] = MAX_VIDEO_SIZE  # Use video size limit as it's larger
     
-    print("🚀 CIVIC ISSUE DETECTION API")
-    print("=" * 60)
+    print("🚀 CIVIC ISSUE DETECTION API - IMAGES & VIDEOS")
+    print("=" * 65)
     
     # Display model status
     print("📊 MODEL STATUS:")
@@ -456,19 +721,27 @@ if __name__ == '__main__':
         print("     - civic_issue_classifier.tflite")
         print("     - best_civic_model.h5")
     
+    print("\n🎥 VIDEO PROCESSING CONFIG:")
+    print(f"  • Sample Rate: {VIDEO_SAMPLE_RATE} frame(s) per second")
+    print(f"  • Issue Threshold: {ISSUE_THRESHOLD * 100}% of frames must show issues")
+    print(f"  • Supported Formats: {', '.join(SUPPORTED_VIDEO_FORMATS)}")
+    print(f"  • Max Video Size: {MAX_VIDEO_SIZE // (1024 * 1024)}MB")
+    print("  • No minimum frame requirement - analyzes any number of frames")
+    
     print("\n🌐 STARTING SERVER...")
     print("📱 API Documentation: http://localhost:1200")
     print("📊 Status Check: http://localhost:1200/status")
     print("\n🔗 AVAILABLE ENDPOINTS:")
-    print("  • POST /predict/issue         - Detect civic issues (file upload)")
-    print("  • POST /predict/issue-base64  - Detect civic issues (base64)")
+    print("  • POST /predict/issue         - Detect civic issues in images (file upload)")
+    print("  • POST /predict/issue-base64  - Detect civic issues in images (base64)")
+    print("  • POST /predict/video         - Detect civic issues in videos 🆕")
     
     if issue_model_loaded:
-        print("\n⭐ Server ready! Issue detection model loaded.")
+        print("\n⭐ Server ready! Issue detection model loaded for images and videos.")
     else:
         print("\n⚠️  Warning: Issue detection model not loaded. Please check model files.")
     
-    print("=" * 60)
+    print("=" * 65)
     
     # Run the Flask app
     app.run(
