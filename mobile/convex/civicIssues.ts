@@ -29,7 +29,8 @@ export const createIssue = mutation({
       v.literal("high"),
       v.literal("urgent")
     ),
-    images: v.optional(v.array(v.id("_storage"))), 
+    images: v.optional(v.array(v.id("_storage"))),
+    videos: v.optional(v.array(v.id("_storage"))), 
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -61,6 +62,7 @@ export const createIssue = mutation({
       location: args.location,
       priority: args.priority,
       images: args.images,
+      videos: args.videos,
       status: initialStatus,
       assignedToDepartment: assignedToDepartment, // No need to convert now
       assignedBy: assignedToDepartment ? args.reportedBy : undefined, // Auto-assigned by system
@@ -195,9 +197,23 @@ export const getIssues = query({
           imageUrls = imageUrls.filter(url => url !== "");
         }
         
+        // Generate video URLs from storage IDs
+        let videoUrls: string[] = [];
+        if (issue.videos && issue.videos.length > 0) {
+          videoUrls = await Promise.all(
+            issue.videos.map(async (storageId) => {
+              const url = await ctx.storage.getUrl(storageId);
+              return url || "";
+            })
+          );
+          // Filter out empty URLs
+          videoUrls = videoUrls.filter(url => url !== "");
+        }
+        
         return {
           ...issue,
           imageUrls, // Add the generated URLs
+          videoUrls, // Add the generated video URLs
           assignedDepartment: assignedDepartment ? {
             _id: assignedDepartment._id,
             name: assignedDepartment.name,
@@ -321,6 +337,19 @@ export const getIssueById = query({
       imageUrls = imageUrls.filter(url => url !== "");
     }
 
+    // Generate video URLs from storage IDs
+    let videoUrls: string[] = [];
+    if (issue.videos && issue.videos.length > 0) {
+      videoUrls = await Promise.all(
+        issue.videos.map(async (storageId) => {
+          const url = await ctx.storage.getUrl(storageId);
+          return url || "";
+        })
+      );
+      // Filter out empty URLs
+      videoUrls = videoUrls.filter(url => url !== "");
+    }
+
     // Get reporter details
     const reporter = await ctx.db.get(issue.reportedBy);
     
@@ -357,6 +386,7 @@ export const getIssueById = query({
     return {
       ...issue,
       imageUrls, // Add the generated URLs
+      videoUrls, // Add the generated video URLs
       reporter: reporter ? {
         firstName: reporter.firstName,
         lastName: reporter.lastName,
@@ -415,6 +445,7 @@ export const updateIssueStatus = mutation({
     note: v.optional(v.string()),
     resolutionNote: v.optional(v.string()),
     resolutionImages: v.optional(v.array(v.string())),
+    resolutionVideos: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const issue = await ctx.db.get(args.issueId);
@@ -430,6 +461,7 @@ export const updateIssueStatus = mutation({
       updateData.resolvedAt = now;
       if (args.resolutionNote) updateData.resolutionNote = args.resolutionNote;
       if (args.resolutionImages) updateData.resolutionImages = args.resolutionImages;
+      if (args.resolutionVideos) updateData.resolutionVideos = args.resolutionVideos;
     }
 
     await ctx.db.patch(args.issueId, updateData);

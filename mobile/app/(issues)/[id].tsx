@@ -11,14 +11,16 @@ import {
   Linking,
   Share,
   Dimensions,
-  Image, // Added for images
-  Modal, // Added for full-screen image view
+  Image,
+  Modal,
+  ActivityIndicator,
 } from "react-native";
 import { useUser } from "@clerk/clerk-expo";
 import { useQuery, useMutation } from "convex/react";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Video, ResizeMode } from 'expo-av'; // Add this import
 import { api } from "@/convex/_generated/api";
 
 export default function IssueDetailPage() {
@@ -29,9 +31,11 @@ export default function IssueDetailPage() {
   const [comment, setComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
-  // New state for image modal
+  // Enhanced modal state for both images and videos
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
+  const [selectedMediaType, setSelectedMediaType] = useState<'image' | 'video'>('image');
+  const [videoLoading, setVideoLoading] = useState<{[key: string]: boolean}>({});
 
   const convexUser = useQuery(
     api.users.getUserByClerkId,
@@ -45,18 +49,9 @@ export default function IssueDetailPage() {
 
   const addComment = useMutation(api.civicIssues.addComment);
   const toggleUpvote = useMutation(api.civicIssues.toggleUpvote);
-  const incrementViewCount = useMutation(api.civicIssues.incrementViewCount);
-
-  // Uncomment this to enable view count incrementing on load
-  // useEffect(() => {
-  //   if (id) {
-  //     incrementViewCount({ issueId: id as any });
-  //   }
-  // }, [id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // You might want to re-fetch data here instead of a timeout
     setTimeout(() => setRefreshing(false), 1000);
   };
 
@@ -106,16 +101,30 @@ export default function IssueDetailPage() {
     }
   };
 
-  // --- Image Modal Handlers ---
+  // Enhanced media modal handlers
   const handleImagePress = (index: number) => {
-    setSelectedImageIndex(index);
+    setSelectedMediaIndex(index);
+    setSelectedMediaType('image');
+    setIsModalVisible(true);
+  };
+
+  const handleVideoPress = (index: number) => {
+    setSelectedMediaIndex(index);
+    setSelectedMediaType('video');
     setIsModalVisible(true);
   };
 
   const handleCloseModal = () => {
     setIsModalVisible(false);
   };
-  // --- End Image Modal Handlers ---
+
+  const handleVideoLoadStart = (videoUrl: string) => {
+    setVideoLoading(prev => ({ ...prev, [videoUrl]: true }));
+  };
+
+  const handleVideoLoad = (videoUrl: string) => {
+    setVideoLoading(prev => ({ ...prev, [videoUrl]: false }));
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -240,24 +249,78 @@ export default function IssueDetailPage() {
           </View>
         </View>
 
-        {/* --- NEW: Images Section --- */}
-        {issue.imageUrls && issue.imageUrls.length > 0 && (
-          <View style={styles.imagesSection}>
-            <Text style={styles.sectionTitleInverted}>Photos</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.imagesContainer}
-            >
-              {issue.imageUrls.map((url, index) => (
-                <TouchableOpacity
-                  key={index}
-                  onPress={() => handleImagePress(index)}
+        {/* Combined Media Section - Images and Videos */}
+        {((issue.imageUrls && issue.imageUrls.length > 0) || 
+          (issue.videoUrls && issue.videoUrls.length > 0)) && (
+          <View style={styles.mediaSection}>
+            <Text style={styles.sectionTitleInverted}>Media</Text>
+            
+            {/* Images */}
+            {issue.imageUrls && issue.imageUrls.length > 0 && (
+              <View style={styles.mediaSubsection}>
+                <Text style={styles.mediaSubtitle}>Photos ({issue.imageUrls.length})</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.mediaContainer}
                 >
-                  <Image source={{ uri: url }} style={styles.issueImage} />
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                  {issue.imageUrls.map((url, index) => (
+                    <TouchableOpacity
+                      key={`image-${index}`}
+                      onPress={() => handleImagePress(index)}
+                      style={styles.mediaWrapper}
+                    >
+                      <Image source={{ uri: url }} style={styles.mediaItem} />
+                      <View style={styles.mediaTypeIndicator}>
+                        <Ionicons name="image" size={14} color="white" />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Videos */}
+            {issue.videoUrls && issue.videoUrls.length > 0 && (
+              <View style={styles.mediaSubsection}>
+                <Text style={styles.mediaSubtitle}>Videos ({issue.videoUrls.length})</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.mediaContainer}
+                >
+                  {issue.videoUrls.map((url, index) => (
+                    <TouchableOpacity
+                      key={`video-${index}`}
+                      onPress={() => handleVideoPress(index)}
+                      style={styles.mediaWrapper}
+                    >
+                      <Video
+                        source={{ uri: url }}
+                        style={styles.mediaItem}
+                        resizeMode={ResizeMode.COVER}
+                        shouldPlay={false}
+                        isLooping={false}
+                        useNativeControls={false}
+                        onLoadStart={() => handleVideoLoadStart(url)}
+                        onLoad={() => handleVideoLoad(url)}
+                      />
+                      {videoLoading[url] && (
+                        <View style={styles.videoLoadingOverlay}>
+                          <ActivityIndicator size="small" color="white" />
+                        </View>
+                      )}
+                      <View style={styles.videoPlayOverlay}>
+                        <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.9)" />
+                      </View>
+                      <View style={[styles.mediaTypeIndicator, styles.videoTypeIndicator]}>
+                        <Ionicons name="videocam" size={14} color="white" />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
           </View>
         )}
 
@@ -288,6 +351,7 @@ export default function IssueDetailPage() {
           </View>
         </View>
 
+        {/* Rest of your existing sections... */}
         {/* Issue Details */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Description</Text>
@@ -470,7 +534,7 @@ export default function IssueDetailPage() {
         </View>
       </ScrollView>
 
-      {/* --- NEW: Full Screen Image Modal --- */}
+      {/* Enhanced Full Screen Media Modal */}
       <Modal
         visible={isModalVisible}
         transparent={true}
@@ -484,28 +548,53 @@ export default function IssueDetailPage() {
           >
             <Ionicons name="close" size={32} color="white" />
           </TouchableOpacity>
-          {issue.imageUrls && issue.imageUrls.length > 0 && (
-            <Image
-              source={{ uri: issue.imageUrls[selectedImageIndex] }}
-              style={styles.fullScreenImage}
-              resizeMode="contain"
-            />
+          
+          {selectedMediaType === 'image' && issue.imageUrls && issue.imageUrls.length > 0 && (
+            <>
+              <Image
+                source={{ uri: issue.imageUrls[selectedMediaIndex] }}
+                style={styles.fullScreenImage}
+                resizeMode="contain"
+              />
+              {issue.imageUrls.length > 1 && (
+                <View style={styles.mediaCounter}>
+                  <Text style={styles.mediaCounterText}>
+                    {selectedMediaIndex + 1} / {issue.imageUrls.length} Photos
+                  </Text>
+                </View>
+              )}
+            </>
           )}
-          {issue.imageUrls && issue.imageUrls.length > 1 && (
-            <View style={styles.imageCounter}>
-              <Text style={styles.imageCounterText}>
-                {selectedImageIndex + 1} / {issue.imageUrls.length}
-              </Text>
-            </View>
+          
+          {selectedMediaType === 'video' && issue.videoUrls && issue.videoUrls.length > 0 && (
+            <>
+              <Video
+                source={{ uri: issue.videoUrls[selectedMediaIndex] }}
+                style={styles.fullScreenVideo}
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay={true}
+                isLooping={true}
+                useNativeControls={true}
+              />
+              {issue.videoUrls.length > 1 && (
+                <View style={styles.mediaCounter}>
+                  <Text style={styles.mediaCounterText}>
+                    {selectedMediaIndex + 1} / {issue.videoUrls.length} Videos
+                  </Text>
+                </View>
+              )}
+            </>
           )}
         </View>
       </Modal>
     </SafeAreaView>
   );
 }
+
 const { width, height } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
+  // ... existing styles remain the same ...
   container: { flex: 1, backgroundColor: "#f8fafc" },
   header: {
     backgroundColor: "#16a34a",
@@ -572,6 +661,109 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingHorizontal: 20,
   },
+
+  // New Media Styles
+  mediaSection: {
+    backgroundColor: "white",
+    paddingVertical: 20,
+    marginBottom: 8,
+  },
+  mediaSubsection: {
+    marginBottom: 20,
+  },
+  mediaSubtitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#4b5563",
+    marginBottom: 12,
+    paddingHorizontal: 20,
+  },
+  mediaContainer: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  mediaWrapper: {
+    position: "relative",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  mediaItem: {
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    backgroundColor: "#e5e7eb",
+  },
+  mediaTypeIndicator: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: 12,
+    padding: 4,
+  },
+  videoTypeIndicator: {
+    backgroundColor: "rgba(239, 68, 68, 0.8)", // Red for videos
+  },
+  videoPlayOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.3)",
+  },
+  videoLoadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+
+  // Enhanced Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalCloseButton: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    zIndex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderRadius: 20,
+    padding: 4,
+  },
+  fullScreenImage: { 
+    width: width, 
+    height: height * 0.7 
+  },
+  fullScreenVideo: {
+    width: width,
+    height: height * 0.7,
+  },
+  mediaCounter: {
+    position: "absolute",
+    bottom: 40,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  mediaCounterText: { 
+    color: "white", 
+    fontSize: 14, 
+    fontWeight: "600" 
+  },
+
+  // ... rest of your existing styles ...
   description: {
     fontSize: 16,
     color: "#4b5563",
@@ -706,7 +898,7 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     justifyContent: "center",
     alignItems: "flex-start",
-    gap:2,
+    gap: 2,
     marginBottom: 8,
   },
   commentUser: { flexDirection: "row", alignItems: "center" },
@@ -717,47 +909,8 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   officialUser: { color: "#16a34a" },
-  commentDate: { fontSize: 12, color: "#9ca3af",marginLeft:4 },
+  commentDate: { fontSize: 12, color: "#9ca3af", marginLeft: 4 },
   commentContent: { fontSize: 14, color: "#4b5563", lineHeight: 20 },
   noComments: { alignItems: "center", paddingVertical: 20 },
   noCommentsText: { fontSize: 14, color: "#9ca3af", fontStyle: "italic" },
-
-  // --- New Image Styles ---
-  imagesSection: {
-    backgroundColor: "white",
-    paddingVertical: 20,
-    marginBottom: 8,
-  },
-  imagesContainer: { paddingHorizontal: 20, gap: 12 },
-  issueImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 12,
-    backgroundColor: "#e5e7eb",
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalCloseButton: {
-    position: "absolute",
-    top: 50,
-    right: 20,
-    zIndex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    borderRadius: 20,
-    padding: 4,
-  },
-  fullScreenImage: { width: width, height: height * 0.7 },
-  imageCounter: {
-    position: "absolute",
-    bottom: 40,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  imageCounterText: { color: "white", fontSize: 14, fontWeight: "600" },
 });

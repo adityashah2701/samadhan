@@ -55,6 +55,8 @@ export default defineSchema({
     }),
     images: v.optional(v.array(v.id("_storage"))),
     imageUrls: v.optional(v.array(v.string())),
+    videos: v.optional(v.array(v.id("_storage"))),
+    videoUrls: v.optional(v.array(v.string())),
     status: v.union(
       v.literal("pending"),
       v.literal("acknowledged"),
@@ -76,6 +78,7 @@ export default defineSchema({
     viewCount: v.number(),
     resolutionNote: v.optional(v.string()),
     resolutionImages: v.optional(v.array(v.string())),
+    resolutionVideos: v.optional(v.array(v.string())),
     resolvedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),

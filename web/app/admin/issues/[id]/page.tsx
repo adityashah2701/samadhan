@@ -304,23 +304,52 @@ export default function IssueDetailPage() {
           </Card>
           
           {/* Media Attachments */}
-          {(issue.imageUrls && issue.imageUrls.length > 0) && (
+          {((issue.imageUrls && issue.imageUrls.length > 0) || (issue.videoUrls && issue.videoUrls.length > 0)) && (
             <Card>
               <CardHeader>
                 <CardTitle>Media</CardTitle>
-                <CardDescription>Images related to the issue.</CardDescription>
+                <CardDescription>Images and videos related to the issue.</CardDescription>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {issue.imageUrls.map((url, index) => (
-                  <div key={index} className="relative h-52 w-52 rounded-md overflow-hidden">
-                    <Image
-                      src={url}
-                      alt={`Issue image ${index + 1}`}
-                      fill
-                      style={{ objectFit: "cover" }}
-                    />
+              <CardContent className="space-y-4">
+                {/* Images */}
+                {issue.imageUrls && issue.imageUrls.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Images</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {issue.imageUrls.map((url, index) => (
+                        <div key={index} className="relative h-52 w-52 rounded-md overflow-hidden">
+                          <Image
+                            src={url}
+                            alt={`Issue image ${index + 1}`}
+                            fill
+                            style={{ objectFit: "cover" }}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
+                
+                {/* Videos */}
+                {issue.videoUrls && issue.videoUrls.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Videos</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {issue.videoUrls.map((url, index) => (
+                        <div key={index} className="relative">
+                          <video
+                            src={url}
+                            controls
+                            className="w-full h-48 rounded-md object-cover"
+                            preload="metadata"
+                          >
+                            Your browser does not support the video tag.
+                          </video>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

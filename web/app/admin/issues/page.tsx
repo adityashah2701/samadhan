@@ -30,6 +30,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Columns3,
+  Video,
+  Image as ImageIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useMemo } from "react"
@@ -561,6 +563,20 @@ export default function IssuesPage() {
                                 <div className="flex-1 min-w-0">
                                   <p className="font-semibold text-sm text-foreground line-clamp-1">{issue.title}</p>
                                   <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{issue.description}</p>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    {issue.imageUrls && issue.imageUrls.length > 0 && (
+                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                        <ImageIcon className="h-3 w-3" />
+                                        <span>{issue.imageUrls.length}</span>
+                                      </div>
+                                    )}
+                                    {issue.videoUrls && issue.videoUrls.length > 0 && (
+                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                        <Video className="h-3 w-3" />
+                                        <span>{issue.videoUrls.length}</span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
