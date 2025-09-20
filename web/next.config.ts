@@ -2,7 +2,7 @@
 
 const nextConfig = {
   images: {
-    domains: ['neat-peccary-29.convex.cloud'],
+    domains: ['usable-salamander-542.convex.cloud'],
   },
   eslint: {
     ignoreDuringBuilds: true, 

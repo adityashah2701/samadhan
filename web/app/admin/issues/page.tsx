@@ -283,12 +283,7 @@ export default function IssuesPage() {
             Monitor and manage civic issues reported through the mobile application
           </p>
         </div>
-        <Link href="/admin/issues/new">
-          <Button>
-            <AlertCircle className="h-4 w-4 mr-2" />
-            Create Issue
-          </Button>
-        </Link>
+    
       </div>
 
       {/* Filters and Search */}
