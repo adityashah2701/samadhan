@@ -7,7 +7,7 @@
     "icon": "./assets/logo.png",
     "scheme": "samadhan",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/logo.png",
       "resizeMode": "contain",
@@ -51,7 +51,12 @@
         "android.permission.VIBRATE",
         "android.permission.WAKE_LOCK",
         "android.permission.POST_NOTIFICATIONS"
-      ]
+      ],
+      "enableProguardInReleaseBuilds": true,
+      "enableShrinkResourcesInReleaseBuilds": true,
+      "networkSecurityConfig": "network_security_config",
+      "allowBackup": false,
+      "largeHeap": true
     },
     "web": {
       "output": "static",
@@ -62,7 +67,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Samadhan to access your camera to take photos and record videos of civic issues."
+          "cameraPermission": "Allow Samadhan to access your camera to take photos and record videos of civic issues.",
+          "microphonePermission": "Allow Samadhan to access your microphone for video recording."
         }
       ],
       [
@@ -70,12 +76,6 @@
         {
           "photosPermission": "Allow Samadhan to access your photos to upload images and videos of civic issues.",
           "cameraPermission": "Allow Samadhan to access your camera to take photos and record videos of civic issues."
-        }
-      ],
-      [
-        "expo-av",
-        {
-          "microphonePermission": "Allow Samadhan to access your microphone for video recording."
         }
       ],
       [
@@ -113,8 +113,10 @@
       "eas": {
         "projectId": "e7b433c9-4b7c-4b8e-bbfc-453d36608c00"
       },
+      "EXPO_PUBLIC_CONVEX_URL": "https://usable-salamander-542.convex.cloud",
+      "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_cmFyZS1iYWRnZXItMTQuY2xlcmsuYWNjb3VudHMuZGV2JA",
       "EXPO_PUBLIC_FLASK_SERVER_URL": "https://samadhan-ml-task-server.onrender.com",
-      "CLERK_PUBLISHABLE_KEY": "pk_test_cmFyZS1iYWRnZXItMTQuY2xlcmsuYWNjb3VudHMuZGV2JA"
+      "enableLegacyCreateRootApi": false
     }
   }
 }

@@ -21,7 +21,16 @@ interface ErrorBoundaryProps {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo)
+    console.error('🚨 Error caught by boundary:', error);
+    console.error('📍 Error info:', errorInfo);
+    
+    // Log specific environment variable errors
+    if (error.message.includes('EXPO_PUBLIC_CONVEX_URL')) {
+      console.error('❌ Convex URL is missing from environment variables');
+    }
+    if (error.message.includes('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY')) {
+      console.error('❌ Clerk publishable key is missing from environment variables');
+    }
   }
 
   render() {
