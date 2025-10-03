@@ -34,6 +34,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
         <ClerkProvider
+         publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
           appearance={{
             elements: {
               formButtonPrimary: "bg-primary hover:bg-primary/90 text-primary-foreground",
@@ -41,7 +42,9 @@ export default function RootLayout({
               headerTitle: "text-foreground",
               headerSubtitle: "text-muted-foreground"
             }
+            
           }}
+         
         >
           <ConvexClientProvider>
             {children}

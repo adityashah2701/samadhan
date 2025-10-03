@@ -20,8 +20,63 @@ import { useQuery, useMutation } from "convex/react";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Video, ResizeMode } from 'expo-av'; // Add this import
 import { api } from "@/convex/_generated/api";
+
+// Simple Video Placeholder component since expo-video has build issues
+const VideoPlaceholder = ({ uri, style, onPress }: { 
+  uri: string; 
+  style: any; 
+  onPress: () => void; 
+}) => {
+  return (
+    <TouchableOpacity onPress={onPress} style={[style, styles.videoPlaceholder]}>
+      <View style={styles.videoPlaceholderContent}>
+        <Ionicons name="play-circle" size={48} color="white" />
+        <Text style={styles.videoPlaceholderText}>Video</Text>
+        <Text style={styles.videoPlaceholderSubtext}>Tap to open</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// External video viewer component
+const ExternalVideoViewer = ({ uri, onClose }: { uri: string; onClose: () => void }) => {
+  const handleOpenExternal = async () => {
+    try {
+      const supported = await Linking.canOpenURL(uri);
+      if (supported) {
+        await Linking.openURL(uri);
+        onClose();
+      } else {
+        Alert.alert(
+          "Cannot Open Video",
+          "Unable to open video with external app. Please check if you have a video player installed."
+        );
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to open video");
+    }
+  };
+
+  return (
+    <View style={styles.externalVideoContainer}>
+      <View style={styles.externalVideoContent}>
+        <Ionicons name="videocam" size={64} color="#6b7280" />
+        <Text style={styles.externalVideoTitle}>Video Content</Text>
+        <Text style={styles.externalVideoDescription}>
+          Video playback requires an external app
+        </Text>
+        <TouchableOpacity style={styles.openExternalButton} onPress={handleOpenExternal}>
+          <Ionicons name="open-outline" size={20} color="white" />
+          <Text style={styles.openExternalText}>Open with External App</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
 
 export default function IssueDetailPage() {
   const { id } = useLocalSearchParams();
@@ -35,7 +90,6 @@ export default function IssueDetailPage() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
   const [selectedMediaType, setSelectedMediaType] = useState<'image' | 'video'>('image');
-  const [videoLoading, setVideoLoading] = useState<{[key: string]: boolean}>({});
 
   const convexUser = useQuery(
     api.users.getUserByClerkId,
@@ -116,14 +170,6 @@ export default function IssueDetailPage() {
 
   const handleCloseModal = () => {
     setIsModalVisible(false);
-  };
-
-  const handleVideoLoadStart = (videoUrl: string) => {
-    setVideoLoading(prev => ({ ...prev, [videoUrl]: true }));
-  };
-
-  const handleVideoLoad = (videoUrl: string) => {
-    setVideoLoading(prev => ({ ...prev, [videoUrl]: false }));
   };
 
   const getStatusColor = (status: string) => {
@@ -290,34 +336,20 @@ export default function IssueDetailPage() {
                   contentContainerStyle={styles.mediaContainer}
                 >
                   {issue.videoUrls.map((url, index) => (
-                    <TouchableOpacity
+                    <View
                       key={`video-${index}`}
-                      onPress={() => handleVideoPress(index)}
                       style={styles.mediaWrapper}
                     >
-                      <Video
-                        source={{ uri: url }}
+                      <VideoPlaceholder
+                        uri={url}
                         style={styles.mediaItem}
-                        resizeMode={ResizeMode.COVER}
-                        shouldPlay={false}
-                        isLooping={false}
-                        useNativeControls={false}
-                        onLoadStart={() => handleVideoLoadStart(url)}
-                        onLoad={() => handleVideoLoad(url)}
+                        onPress={() => handleVideoPress(index)}
                       />
-                      {videoLoading[url] && (
-                        <View style={styles.videoLoadingOverlay}>
-                          <ActivityIndicator size="small" color="white" />
-                        </View>
-                      )}
-                      <View style={styles.videoPlayOverlay}>
-                        <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.9)" />
-                      </View>
                       <View style={[styles.mediaTypeIndicator, styles.videoTypeIndicator]}>
                         <Ionicons name="videocam" size={14} color="white" />
                       </View>
-                    </TouchableOpacity>
-                  ))}
+                    </View>
+                  ))}}
                 </ScrollView>
               </View>
             )}
@@ -567,23 +599,10 @@ export default function IssueDetailPage() {
           )}
           
           {selectedMediaType === 'video' && issue.videoUrls && issue.videoUrls.length > 0 && (
-            <>
-              <Video
-                source={{ uri: issue.videoUrls[selectedMediaIndex] }}
-                style={styles.fullScreenVideo}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay={true}
-                isLooping={true}
-                useNativeControls={true}
-              />
-              {issue.videoUrls.length > 1 && (
-                <View style={styles.mediaCounter}>
-                  <Text style={styles.mediaCounterText}>
-                    {selectedMediaIndex + 1} / {issue.videoUrls.length} Videos
-                  </Text>
-                </View>
-              )}
-            </>
+            <ExternalVideoViewer
+              uri={issue.videoUrls[selectedMediaIndex]}
+              onClose={handleCloseModal}
+            />
           )}
         </View>
       </Modal>
@@ -745,9 +764,79 @@ const styles = StyleSheet.create({
     width: width, 
     height: height * 0.7 
   },
-  fullScreenVideo: {
-    width: width,
-    height: height * 0.7,
+  // Video placeholder styles (since expo-video has build issues)
+  videoPlaceholder: {
+    backgroundColor: '#1f2937',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  videoPlaceholderContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoPlaceholderText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  videoPlaceholderSubtext: {
+    color: '#9ca3af',
+    fontSize: 10,
+    marginTop: 2,
+  },
+  
+  // External video viewer styles
+  externalVideoContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+  },
+  externalVideoContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: 300,
+    margin: 20,
+  },
+  externalVideoTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  externalVideoDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  openExternalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#16a34a',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  openExternalText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  cancelButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  cancelButtonText: {
+    color: '#6b7280',
+    fontSize: 16,
   },
   mediaCounter: {
     position: "absolute",

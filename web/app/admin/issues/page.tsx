@@ -76,7 +76,7 @@ export default function IssuesPage() {
     location: false, // Hidden by default on smaller screens
     reporter: false, // Hidden by default on smaller screens
     date: true,
-    department: false, // Hidden by default on smaller screens
+    department: true, // Hidden by default on smaller screens
     actions: true,
   })
 
@@ -283,12 +283,7 @@ export default function IssuesPage() {
             Monitor and manage civic issues reported through the mobile application
           </p>
         </div>
-        <Link href="/admin/issues/new">
-          <Button>
-            <AlertCircle className="h-4 w-4 mr-2" />
-            Create Issue
-          </Button>
-        </Link>
+    
       </div>
 
       {/* Filters and Search */}
@@ -562,7 +557,7 @@ export default function IssuesPage() {
                               <div className="flex items-start gap-2">
                                 <div className="flex-1 min-w-0">
                                   <p className="font-semibold text-sm text-foreground line-clamp-1">{issue.title}</p>
-                                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{issue.description}</p>
+                                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1 max-w-[200px]">{issue.description}</p>
                                   <div className="flex items-center gap-2 mt-2">
                                     {issue.imageUrls && issue.imageUrls.length > 0 && (
                                       <div className="flex items-center gap-1 text-xs text-muted-foreground">

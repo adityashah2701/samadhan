@@ -249,12 +249,23 @@ export default class AIAnalysisService {
    */
   async analyzeVideo(videoUri: string, includeImages: boolean = false): Promise<VideoAnalysisResult> {
     try {
+      // Create proper FormData for video upload with better error handling
       const formData = new FormData();
+      
+      // For React Native, use the proper format
       formData.append('video', {
         uri: videoUri,
         type: 'video/mp4',
         name: 'video.mp4',
       } as any);
+      
+      // Add additional headers for better compatibility
+      const uploadHeaders: Record<string, string> = {
+        'Accept': 'application/json',
+      };
+      
+      // Don't set Content-Type manually when using FormData
+      // React Native will set it automatically with boundary
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.timeout);
@@ -264,9 +275,7 @@ export default class AIAnalysisService {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: 'POST',
         body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers: uploadHeaders, // Use the proper headers without Content-Type
         signal: controller.signal,
       });
 
@@ -344,8 +353,8 @@ export default class AIAnalysisService {
         method: 'POST',
         body: formData,
         headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+          'Accept': 'application/json',
+        }, // Don't set Content-Type for FormData
         signal: controller.signal,
       });
 

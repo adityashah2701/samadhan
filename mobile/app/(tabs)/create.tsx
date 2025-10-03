@@ -25,19 +25,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useNotificationContext } from "../components/NotificationProvider";
-import {
-  aiAnalysisService
-} from "../services/aiAnalysisService";
+import { aiAnalysisService } from "../services/aiAnalysisService";
 
 // Import from constants
-import {
-  CATEGORIES, getCategoryInfo
-} from "../constants/categories";
-
+import { CATEGORIES, getCategoryInfo } from "../constants/categories";
 
 interface UploadedMedia {
   uri: string;
-  type: 'image' | 'video';
+  type: "image" | "video";
   storageId?: Id<"_storage">; // Keep as optional, not null
   uploading: boolean;
   aiAnalysis?: {
@@ -70,7 +65,7 @@ const PRIORITY_LEVELS = [
 
 interface UploadedMedia {
   uri: string;
-  type: 'image' | 'video';
+  type: "image" | "video";
   storageId?: Id<"_storage">;
   uploading: boolean;
   aiAnalysis?: {
@@ -303,33 +298,34 @@ export default function EnhancedReportIssuePage() {
     }
   };
   // 1. Fix the upload function to handle both images and videos
-const uploadMediaToConvex = async (
-  mediaUri: string,
-  mediaType: 'image' | 'video'
-): Promise<Id<"_storage"> | undefined> => { // Change null to undefined
-  try {
-    const uploadUrl = await generateUploadUrl();
-    const response = await fetch(mediaUri);
-    const blob = await response.blob();
-    
-    const contentType = mediaType === 'video' ? 'video/mp4' : blob.type;
-    
-    const result = await fetch(uploadUrl, {
-      method: "POST",
-      headers: { "Content-Type": contentType },
-      body: blob,
-    });
+  const uploadMediaToConvex = async (
+    mediaUri: string,
+    mediaType: "image" | "video"
+  ): Promise<Id<"_storage"> | undefined> => {
+    // Change null to undefined
+    try {
+      const uploadUrl = await generateUploadUrl();
+      const response = await fetch(mediaUri);
+      const blob = await response.blob();
 
-    if (result.ok) {
-      const { storageId } = await result.json();
-      return storageId as Id<"_storage">;
+      const contentType = mediaType === "video" ? "video/mp4" : blob.type;
+
+      const result = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": contentType },
+        body: blob,
+      });
+
+      if (result.ok) {
+        const { storageId } = await result.json();
+        return storageId as Id<"_storage">;
+      }
+      return undefined; // Return undefined instead of null
+    } catch (error) {
+      console.error(`Error uploading ${mediaType}:`, error);
+      return undefined; // Return undefined instead of null
     }
-    return undefined; // Return undefined instead of null
-  } catch (error) {
-    console.error(`Error uploading ${mediaType}:`, error);
-    return undefined; // Return undefined instead of null
-  }
-};
+  };
 
   const uploadImageToConvex = async (
     imageUri: string
@@ -375,167 +371,172 @@ const uploadMediaToConvex = async (
     return "medium"; // default fallback
   };
 
-const analyzeVideoWithAI = async (videoUri: string) => {
-  if (!serverConnected) {
-    console.log("⚠️ Skipping AI analysis - server not connected");
-    return null;
-  }
-
-  try {
-    // Use the updated service instead of hardcoded URL
-    const result = await aiAnalysisService.analyzeVideo(videoUri, false);
-
-    if (!result.success || !result.overall_result) {
+  const analyzeVideoWithAI = async (videoUri: string) => {
+    if (!serverConnected) {
+      console.log("⚠️ Skipping AI analysis - server not connected");
       return null;
     }
-
-    return {
-      isIssue: result.overall_result.is_issue,
-      confidence: result.overall_result.confidence,
-      category: result.overall_result.predicted_class === 'issue' ? 'Infrastructure' : undefined,
-      categoryConfidence: result.overall_result.confidence,
-      suggestions: result.statistics ? 
-        `Video analysis shows ${Math.round(result.statistics.issue_percentage)}% of frames contain civic issues.` :
-        "Video analyzed for civic issues.",
-    };
-  } catch (error) {
-    console.error("❌ Video AI analysis error:", error);
-    return null;
-  }
-};
-const analyzeImageWithAI = async (imageUri: string) => {
-  if (!serverConnected) {
-    console.log("⚠️ Skipping AI analysis - server not connected");
-    return null;
-  }
-
-  try {
-    const result = await aiAnalysisService.analyzeImage(imageUri);
-
-    if (!result.success) {
-      return null;
-    }
-
-    return {
-      isIssue: result.is_issue || false,
-      confidence: result.confidence || 0,
-      category: result.predicted_class === 'issue' ? 'Infrastructure' : undefined,
-      categoryConfidence: result.confidence || 0,
-      suggestions: aiAnalysisService.generateSuggestions(result),
-    };
-  } catch (error) {
-    console.error("❌ AI analysis error:", error);
-    return null;
-  }
-};
-const handleMediaSelection = async (
-  result: ImagePicker.ImagePickerResult
-) => {
-  if (!result.canceled && result.assets[0]) {
-    if (media.length >= 3) {
-      Alert.alert("Limit Reached", "You can upload a maximum of 3 media files.");
-      return;
-    }
-
-    const asset = result.assets[0];
-    const mediaType = asset.type === 'video' ? 'video' : 'image';
-    
-    const newMedia: UploadedMedia = {
-      uri: asset.uri,
-      type: mediaType,
-      uploading: true,
-    };
-
-    setMedia((prev) => [...prev, newMedia]);
-    setAiAnalysisInProgress(true);
 
     try {
-      // Upload to Convex with proper media type handling
-      const storageId = await uploadMediaToConvex(asset.uri, mediaType);
+      // Use the updated service instead of hardcoded URL
+      const result = await aiAnalysisService.analyzeVideo(videoUri, false);
 
-      // Analyze with AI based on media type
-      const aiAnalysis = mediaType === 'image' 
-        ? await analyzeImageWithAI(asset.uri)
-        : await analyzeVideoWithAI(asset.uri);
-
-      if (aiAnalysis) {
-        console.log("🔍 AI Analysis Result:", {
-          isIssue: aiAnalysis.isIssue,
-          confidence: aiAnalysis.confidence,
-          category: aiAnalysis.category,
-          mediaType: mediaType,
-        });
-
-        if (aiAnalysis.isIssue && aiAnalysis.category) {
-          const newPriority = getPriorityFromConfidence(aiAnalysis.confidence);
-          
-          setFormData((prev) => ({
-            ...prev,
-            category: aiAnalysis.category || prev.category,
-            description: prev.description || aiAnalysis.suggestions || "",
-            priority: newPriority,
-          }));
-        } else if (!aiAnalysis.isIssue && aiAnalysis.confidence > 0.6) {
-          Alert.alert(
-            "No Civic Issue Detected",
-            `Our AI analysis (${Math.round(aiAnalysis.confidence * 100)}% confidence) suggests this ${mediaType} may not show a civic issue. Please upload clearer media that shows the problem, or remove this ${mediaType}.`,
-            [
-              {
-                text: `Remove ${mediaType}`,
-                onPress: () => {
-                  setMedia((prev) =>
-                    prev.filter((item) => item.uri !== newMedia.uri)
-                  );
-                },
-              },
-              {
-                text: `Keep ${mediaType}`,
-                style: "cancel",
-              },
-            ]
-          );
-        }
+      if (!result.success || !result.overall_result) {
+        return null;
       }
 
-      // Fix: Properly type the updated media item
-      setMedia((prev) =>
-        prev.map((item): UploadedMedia => {
-          if (item.uri === newMedia.uri) {
-            return {
-              ...item,
-              storageId: storageId || undefined, // Ensure undefined, not null
-              uploading: false,
-              aiAnalysis: aiAnalysis || undefined, // Ensure undefined, not null
-            };
-          }
-          return item;
-        })
-      );
-
+      return {
+        isIssue: result.overall_result.is_issue,
+        confidence: result.overall_result.confidence,
+        category:
+          result.overall_result.predicted_class === "issue"
+            ? "Infrastructure"
+            : undefined,
+        categoryConfidence: result.overall_result.confidence,
+        suggestions: result.statistics
+          ? `Video analysis shows ${Math.round(result.statistics.issue_percentage)}% of frames contain civic issues.`
+          : "Video analyzed for civic issues.",
+      };
     } catch (error) {
-      console.error(`Error processing ${mediaType}:`, error);
-      
-      // Fix: Properly type the error case update
-      setMedia((prev) =>
-        prev.map((item): UploadedMedia => {
-          if (item.uri === newMedia.uri) {
-            return {
-              ...item,
-              storageId: undefined, // Keep as undefined
-              uploading: false,
-            };
-          }
-          return item;
-        })
-      );
-    } finally {
-      setAiAnalysisInProgress(false);
+      console.error("❌ Video AI analysis error:", error);
+      return null;
     }
-  }
-};
+  };
+  const analyzeImageWithAI = async (imageUri: string) => {
+    if (!serverConnected) {
+      console.log("⚠️ Skipping AI analysis - server not connected");
+      return null;
+    }
 
+    try {
+      const result = await aiAnalysisService.analyzeImage(imageUri);
 
+      if (!result.success) {
+        return null;
+      }
 
+      return {
+        isIssue: result.is_issue || false,
+        confidence: result.confidence || 0,
+        category:
+          result.predicted_class === "issue" ? "Infrastructure" : undefined,
+        categoryConfidence: result.confidence || 0,
+        suggestions: aiAnalysisService.generateSuggestions(result),
+      };
+    } catch (error) {
+      console.error("❌ AI analysis error:", error);
+      return null;
+    }
+  };
+  const handleMediaSelection = async (
+    result: ImagePicker.ImagePickerResult
+  ) => {
+    if (!result.canceled && result.assets[0]) {
+      if (media.length >= 3) {
+        Alert.alert(
+          "Limit Reached",
+          "You can upload a maximum of 3 media files."
+        );
+        return;
+      }
+
+      const asset = result.assets[0];
+      const mediaType = asset.type === "video" ? "video" : "image";
+
+      const newMedia: UploadedMedia = {
+        uri: asset.uri,
+        type: mediaType,
+        uploading: true,
+      };
+
+      setMedia((prev) => [...prev, newMedia]);
+      setAiAnalysisInProgress(true);
+
+      try {
+        // Upload to Convex with proper media type handling
+        const storageId = await uploadMediaToConvex(asset.uri, mediaType);
+
+        // Analyze with AI based on media type
+        const aiAnalysis =
+          mediaType === "image"
+            ? await analyzeImageWithAI(asset.uri)
+            : await analyzeVideoWithAI(asset.uri);
+
+        if (aiAnalysis) {
+          console.log("🔍 AI Analysis Result:", {
+            isIssue: aiAnalysis.isIssue,
+            confidence: aiAnalysis.confidence,
+            category: aiAnalysis.category,
+            mediaType: mediaType,
+          });
+
+          if (aiAnalysis.isIssue && aiAnalysis.category) {
+            const newPriority = getPriorityFromConfidence(
+              aiAnalysis.confidence
+            );
+
+            setFormData((prev) => ({
+              ...prev,
+              category: aiAnalysis.category || prev.category,
+              priority: newPriority,
+            }));
+          } else if (!aiAnalysis.isIssue && aiAnalysis.confidence > 0.6) {
+            Alert.alert(
+              "No Civic Issue Detected",
+              `Our AI analysis (${Math.round(aiAnalysis.confidence * 100)}% confidence) suggests this ${mediaType} may not show a civic issue. Please upload clearer media that shows the problem, or remove this ${mediaType}.`,
+              [
+                {
+                  text: `Remove ${mediaType}`,
+                  onPress: () => {
+                    setMedia((prev) =>
+                      prev.filter((item) => item.uri !== newMedia.uri)
+                    );
+                  },
+                },
+                {
+                  text: `Keep ${mediaType}`,
+                  style: "cancel",
+                },
+              ]
+            );
+          }
+        }
+
+        // Fix: Properly type the updated media item
+        setMedia((prev) =>
+          prev.map((item): UploadedMedia => {
+            if (item.uri === newMedia.uri) {
+              return {
+                ...item,
+                storageId: storageId || undefined, // Ensure undefined, not null
+                uploading: false,
+                aiAnalysis: aiAnalysis || undefined, // Ensure undefined, not null
+              };
+            }
+            return item;
+          })
+        );
+      } catch (error) {
+        console.error(`Error processing ${mediaType}:`, error);
+
+        // Fix: Properly type the error case update
+        setMedia((prev) =>
+          prev.map((item): UploadedMedia => {
+            if (item.uri === newMedia.uri) {
+              return {
+                ...item,
+                storageId: undefined, // Keep as undefined
+                uploading: false,
+              };
+            }
+            return item;
+          })
+        );
+      } finally {
+        setAiAnalysisInProgress(false);
+      }
+    }
+  };
 
   const pickMedia = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -567,7 +568,14 @@ const handleMediaSelection = async (
     });
     handleMediaSelection(result);
   };
-
+  useEffect(() => {
+    return () => {
+      // Cleanup function to reset states when component unmounts
+      setMedia([]);
+      setAiAnalysisInProgress(false);
+      setIsSubmitting(false);
+    };
+  }, []);
   const showMediaPicker = () =>
     Alert.alert("Add Media", "Choose an option", [
       { text: "Take Photo", onPress: takePhoto },
@@ -593,6 +601,10 @@ const handleMediaSelection = async (
     });
     setMedia([]);
     setLocation(null);
+    setAiAnalysisInProgress(false);
+    setIsSubmitting(false);
+
+    // Get fresh location data
     getCurrentLocation();
   };
 
@@ -651,38 +663,38 @@ const handleMediaSelection = async (
 
     console.log("🔄 Starting submission process...");
     setIsSubmitting(true);
- try {
-    const imageStorageIds = media
-      .filter((item) => item.storageId && item.type === 'image')
-      .map((item) => item.storageId!); // Use ! since we filtered for truthy storageId
-    
-    const videoStorageIds = media
-      .filter((item) => item.storageId && item.type === 'video')
-      .map((item) => item.storageId!); // Use ! since we filtered for truthy storageId
 
-    console.log("📁 Media prepared:", { 
-      images: imageStorageIds.length, 
-      videos: videoStorageIds.length 
-    });
+    try {
+      const imageStorageIds = media
+        .filter((item) => item.storageId && item.type === "image")
+        .map((item) => item.storageId!);
 
-    const issueData = {
-      reportedBy: convexUser._id,
-      title: formData.title.trim(),
-      description: formData.description.trim(),
-      category: formData.category,
-      location: {
-        address: formData.address.trim(),
-        city: formData.city,
-        district: formData.district,
-        pincode: formData.pincode.trim() || undefined,
-        landmark: formData.landmark.trim() || undefined,
-        coordinates: location || undefined,
-      },
-      priority: formData.priority,
-      images: imageStorageIds.length > 0 ? imageStorageIds : undefined,
-      videos: videoStorageIds.length > 0 ? videoStorageIds : undefined,
-    };
+      const videoStorageIds = media
+        .filter((item) => item.storageId && item.type === "video")
+        .map((item) => item.storageId!);
 
+      console.log("📁 Media prepared:", {
+        images: imageStorageIds.length,
+        videos: videoStorageIds.length,
+      });
+
+      const issueData = {
+        reportedBy: convexUser._id,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        category: formData.category,
+        location: {
+          address: formData.address.trim(),
+          city: formData.city,
+          district: formData.district,
+          pincode: formData.pincode.trim() || undefined,
+          landmark: formData.landmark.trim() || undefined,
+          coordinates: location || undefined,
+        },
+        priority: formData.priority,
+        images: imageStorageIds.length > 0 ? imageStorageIds : undefined,
+        videos: videoStorageIds.length > 0 ? videoStorageIds : undefined,
+      };
 
       console.log(
         "📝 Issue data prepared:",
@@ -706,6 +718,9 @@ const handleMediaSelection = async (
       } catch (notifError) {
         console.error("⚠️ Notification error (non-critical):", notifError);
       }
+
+      // Reset form state immediately after successful submission
+      resetForm();
 
       console.log("🎉 Showing success modal");
       setSuccessModalVisible(true);
@@ -785,21 +800,26 @@ const handleMediaSelection = async (
 
               <View style={styles.aiSuggestionBadge}>
                 <Ionicons name="sparkles" size={12} color="#8b5cf6" />
-                <Text style={styles.aiSuggestionText}>AI Suggested</Text>
+                <Text style={styles.aiSuggestionText}>AI Verification</Text>
               </View>
             </View>
 
             <View style={styles.mediaContainer}>
               {media.map((item, index) => (
                 <View key={index} style={styles.mediaWrapper}>
-                  {item.type === 'image' ? (
+                  {item.type === "image" ? (
                     <Image
                       source={{ uri: item.uri }}
                       style={styles.uploadedMedia}
                     />
                   ) : (
                     <View style={styles.videoThumbnailContainer}>
-                      <Ionicons name="play-circle" size={48} color="white" style={styles.playIcon} />
+                      <Ionicons
+                        name="play-circle"
+                        size={48}
+                        color="white"
+                        style={styles.playIcon}
+                      />
                       <Text style={styles.videoText}>Video</Text>
                     </View>
                   )}
@@ -891,18 +911,12 @@ const handleMediaSelection = async (
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Text style={styles.label}>Description *</Text>
-                {hasAISuggestions && (
-                  <View style={styles.aiSuggestionBadge}>
-                    <Ionicons name="sparkles" size={12} color="#8b5cf6" />
-                    <Text style={styles.aiSuggestionText}>AI Enhanced</Text>
-                  </View>
-                )}
+
               </View>
               <TextInput
                 style={[
                   styles.input,
                   styles.textArea,
-                  hasAISuggestions && styles.inputAIEnhanced,
                 ]}
                 value={formData.description}
                 onChangeText={(text) =>
@@ -983,16 +997,18 @@ const handleMediaSelection = async (
               style={styles.successModalButton}
               onPress={() => {
                 setSuccessModalVisible(false);
+                // Navigate to track page - form is already reset
                 router.push("/(tabs)/track");
               }}
             >
               <Text style={styles.successModalButtonText}>View My Reports</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.successModalSecondaryButton}
               onPress={() => {
                 setSuccessModalVisible(false);
-                resetForm();
+                // Form is already reset, just close modal to show clean form
               }}
             >
               <Text style={styles.successModalSecondaryButtonText}>
